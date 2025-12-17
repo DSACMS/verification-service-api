@@ -32,10 +32,10 @@ func getEnv(key, fallback string) string {
 	value := os.Getenv(key)
 
 	if value != "" {
-		return value 
+		return value
 	}
 
-	log.Printf("No env variable matching %v found... using fallback", value)
+	log.Printf("No env variable matching %v found... using fallback", key)
 
 	return fallback
 }

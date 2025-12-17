@@ -1,4 +1,4 @@
-module github.com/imhben/Verification-Service-API
+module github.com/DSACMS/verification-service-api
 
 go 1.25.5
 
