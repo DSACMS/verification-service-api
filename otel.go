@@ -105,7 +105,7 @@ func newMeterProvider(res *resource.Resource) (*metric.MeterProvider, error) {
 
 	return metric.NewMeterProvider(
 		metric.WithResource(res),
-		metric.WithReader(metric.NewPeriodicReader(exp, metric.WithInterval(60*time.Second))),
+		metric.WithReader(metric.NewPeriodicReader(exp, metric.WithInterval(120*time.Second))),
 	), nil
 }
 
