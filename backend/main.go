@@ -3,7 +3,7 @@ package main
 import (
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
-	"github.com/yourusername/Verification-Service-API/router"
+	"github.com/imhben/Verification-Service-API/router"
 )
 
 func main() {
