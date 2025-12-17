@@ -14,7 +14,7 @@ type Config struct {
 
 var AppConfig Config
 
-func LoadEnv() {
+func Load() {
 	err := godotenv.Load()
 
 	if err != nil {
