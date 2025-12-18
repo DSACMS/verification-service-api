@@ -1,7 +1,11 @@
 package main
 
 import (
+	"context"
+	"fmt"
 	"log"
+	"os"
+	"os/signal"
 	"syscall"
 	"time"
 
@@ -9,28 +13,23 @@ import (
 	"github.com/gofiber/contrib/otelfiber/v2"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
-
-	"context"
-	"os"
-	"os/signal"
 )
 
 func main() {
-
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
 	otelShutdown, err := setupOTelSDK(ctx)
 	if err != nil {
-		log.Fatalln(err)
+		log.Println(err)
 	}
 	defer func() {
 		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
 
-		err := otelShutdown(shutdownCtx)
-		if err != nil {
-			log.Printf("otel shutdown error: %v", err)
+		otelShutdownErr := otelShutdown(shutdownCtx)
+		if otelShutdownErr != nil {
+			log.Printf("otel shutdown error: %v", otelShutdownErr)
 		}
 	}()
 
@@ -56,7 +55,6 @@ func buildApp() *fiber.App {
 	router.SetupRoutes(app)
 
 	return app
-
 }
 
 func runServer(ctx context.Context, app *fiber.App, addr string) error {
@@ -72,8 +70,9 @@ func runServer(ctx context.Context, app *fiber.App, addr string) error {
 	case <-ctx.Done():
 	}
 
-	shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-
-	return app.ShutdownWithContext(shutdownCtx)
+	err := app.ShutdownWithTimeout(5 * time.Second)
+	if err != nil {
+		return fmt.Errorf("error during shutdown: %w", err)
+	}
+	return nil
 }

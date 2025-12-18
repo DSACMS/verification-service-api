@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"errors"
+	"fmt"
 	"time"
 
 	"go.opentelemetry.io/otel"
@@ -22,12 +23,12 @@ func setupOTelSDK(ctx context.Context) (func(context.Context) error, error) {
 	var err error
 
 	shutdown := func(ctx context.Context) error {
-		var err error
+		var shutdownErr error
 		for _, fn := range shutdownFuncs {
-			err = errors.Join(err, fn(ctx))
+			shutdownErr = errors.Join(shutdownErr, fn(ctx))
 		}
 		shutdownFuncs = nil
-		return err
+		return shutdownErr
 	}
 
 	handleErr := func(inErr error) {
@@ -88,7 +89,7 @@ func newPropagator() propagation.TextMapPropagator {
 func newTracerProvider(res *resource.Resource) (*trace.TracerProvider, error) {
 	exp, err := stdouttrace.New(stdouttrace.WithPrettyPrint())
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error creating tracer %w", err)
 	}
 
 	return trace.NewTracerProvider(
@@ -100,7 +101,7 @@ func newTracerProvider(res *resource.Resource) (*trace.TracerProvider, error) {
 func newMeterProvider(res *resource.Resource) (*metric.MeterProvider, error) {
 	exp, err := stdoutmetric.New()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error creating meter %w", err)
 	}
 
 	return metric.NewMeterProvider(
@@ -112,7 +113,7 @@ func newMeterProvider(res *resource.Resource) (*metric.MeterProvider, error) {
 func newLoggerProvider(res *resource.Resource) (*sdklog.LoggerProvider, error) {
 	exp, err := stdoutlog.New()
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("error creating logger %w", err)
 	}
 
 	return sdklog.NewLoggerProvider(
