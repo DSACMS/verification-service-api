@@ -1,4 +1,4 @@
-name: golangci-lint
+name: PR Verification
 
 on:
   workflow_dispatch:
@@ -10,9 +10,6 @@ on:
   pull_request:
     paths-ignore:
       - "**/*.md"
-
-permissions:
-  contents: read
 
 jobs:
   unit:
@@ -46,3 +43,14 @@ jobs:
         with:
           version: v2.5.0
           install-mode: goinstall
+
+    build:
+      name: build
+      runs-on: ubuntu-latest
+      steps:
+        - name: Fetch Repository
+          uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+        - name: Docker Build
+          run: docker build .
+      
+      
