@@ -9,7 +9,9 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/DSACMS/verification-service-api/internal/middleware"
 	"github.com/DSACMS/verification-service-api/internal/router"
+
 	"github.com/gofiber/contrib/otelfiber/v2"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
@@ -23,20 +25,17 @@ func main() {
 	if err != nil {
 		log.Println(err)
 	}
-	defer func() {
-		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
-
-		otelShutdownErr := otelShutdown(shutdownCtx)
-		if otelShutdownErr != nil {
-			log.Printf("otel shutdown error: %v", otelShutdownErr)
-		}
-	}()
+	if otelShutdown != nil {
+		defer func() {
+			shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			otelShutdown(shutdownCtx)
+		}()
+	}
 
 	app := buildApp()
 
-	err = runServer(ctx, app, ":8000")
-	if err != nil {
+	if err := runServer(ctx, app, ":8000"); err != nil {
 		log.Printf("server error: %v", err)
 	}
 }
@@ -51,6 +50,17 @@ func buildApp() *fiber.App {
 	}))
 
 	app.Use(otelfiber.Middleware())
+
+	verifier, err := middleware.NewCognitoVerifier(middleware.CognitoConfig{
+		Region:     os.Getenv("COGNITO_REGION"),
+		UserPoolID: os.Getenv("COGNITO_USER_POOL_ID"),
+		ClientID:   os.Getenv("COGNITO_APP_CLIENT_ID"),
+	})
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	app.Use(verifier.FiberMiddleware())
 
 	router.SetupRoutes(app)
 
@@ -70,8 +80,7 @@ func runServer(ctx context.Context, app *fiber.App, addr string) error {
 	case <-ctx.Done():
 	}
 
-	err := app.ShutdownWithTimeout(5 * time.Second)
-	if err != nil {
+	if err := app.ShutdownWithTimeout(5 * time.Second); err != nil {
 		return fmt.Errorf("error during shutdown: %w", err)
 	}
 	return nil
