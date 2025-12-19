@@ -79,7 +79,7 @@ func (v *CognitoVerifier) FiberMiddleware() fiber.Handler {
 		ctx, cancel := context.WithTimeout(c.Context(), 5*time.Second)
 		defer cancel()
 
-		// Pull cached keys (auto-refreshes as needed)
+		// pull cached keys
 		keyset, err := v.cache.Get(ctx, v.jwksURL)
 		if err != nil {
 			return fiber.NewError(fiber.StatusUnauthorized, "unable to load jwks")
@@ -90,22 +90,20 @@ func (v *CognitoVerifier) FiberMiddleware() fiber.Handler {
 			jwt.WithKeySet(keyset),
 			jwt.WithValidate(true),
 
-			// Standard claim checks
 			jwt.WithIssuer(v.issuer),
 
-			// Cognito-specific: ensure this is an access token
 			jwt.WithClaimValue("token_use", "access"),
 		)
 		if err != nil {
 			return fiber.ErrUnauthorized
 		}
 
-		// Access tokens commonly carry client id in "client_id"
+		// access tokens commonly carry client id in "client_id"
 		if cid, ok := tok.Get("client_id"); !ok || cid != v.cfg.ClientID {
 			return fiber.ErrUnauthorized
 		}
 
-		// Put useful info on context
+		// put useful info on context
 		if sub, ok := tok.Get("sub"); ok {
 			c.Locals("sub", sub)
 		}
