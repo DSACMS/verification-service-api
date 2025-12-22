@@ -3,15 +3,11 @@
 
 ## Getting Started
 
-
 ### Building dependencies
-
 
 ### Building the Project
 
-
 ### Issues
-
 
 ## Policies
 
