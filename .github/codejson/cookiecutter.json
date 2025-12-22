@@ -1,7 +1,7 @@
 {
-    "project_name": "{{ cookiecutter.project_name }}", 
+    "project_name": "{{ cookiecutter.project_name }}",
     "project_repo_name": "{{ cookiecutter.project_repo_name }}",
-    "project_org": "{{ cookiecutter.project_org }}", 
+    "project_org": "{{ cookiecutter.project_org }}",
     "description": "A short description of the project.",
     "long_description": "A longer description of the project.",
     "status": ["Ideation", "Development", "Alpha", "Beta", "Release Candidate", "Production", "Archival"],
@@ -28,7 +28,7 @@
     "repository_type" : ["package", "website", "standards", "libraries", "data", "apps", "tools", "APIs"],
     "user_input": [true, false],
     "fisma_level": ["low", "moderate", "high"],
-    "group": "CMS/OA/DSAC",    
+    "group": "CMS/OA/DSAC",
     "projects": "",
     "systems": "",
     "subset_in_healthcare": "policy, operational, medicare, medicaid",
