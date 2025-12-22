@@ -16,7 +16,6 @@ type CognitoConfig struct {
 	Region     string
 	UserPoolID string
 	ClientID   string
-
 }
 
 type CognitoVerifier struct {
@@ -28,15 +27,28 @@ type CognitoVerifier struct {
 }
 
 func NewCognitoVerifier(cfg CognitoConfig) (*CognitoVerifier, error) {
-	if cfg.Region == "" || cfg.UserPoolID == "" || cfg.ClientID == "" {
-		return nil, errors.New("Region, UserPoolID, and ClientID are required")
+	// if cfg.Region == "" || cfg.UserPoolID == "" || cfg.ClientID == "" {
+	// 	return nil, errors.New("Region, UserPoolID, and ClientID are required")
+	// }
+
+	// split to specify which is missing ^^^
+	if cfg.Region == "" {
+		return nil, errors.New("Region is required")
+	}
+
+	if cfg.UserPoolID == "" {
+		return nil, errors.New("UserPoolID is required")
+	}
+
+	if cfg.ClientID == "" {
+		return nil, errors.New("ClientID is required")
 	}
 
 	issuer := fmt.Sprintf("https://cognito-idp.%s.amazonaws.com/%s", cfg.Region, cfg.UserPoolID)
 	jwksURL := fmt.Sprintf("%s/.well-known/jwks.json", issuer)
 
 	cache := jwk.NewCache(context.Background())
-	// Register the JWKS URL with a refresh window
+	// register the JWKS URL with a refresh window
 	cache.Register(jwksURL)
 
 	return &CognitoVerifier{
@@ -48,7 +60,7 @@ func NewCognitoVerifier(cfg CognitoConfig) (*CognitoVerifier, error) {
 	}, nil
 }
 
-// copy for testinng
+// copy for testing
 func NewCognitoVerifierWithURLs(cfg CognitoConfig, issuer, jwksURL string) (*CognitoVerifier, error) {
 	if cfg.ClientID == "" {
 		return nil, errors.New("ClientID is required")
@@ -76,6 +88,7 @@ func (v *CognitoVerifier) FiberMiddleware() fiber.Handler {
 			return fiber.ErrUnauthorized
 		}
 
+		// 5 second limit to set up
 		ctx, cancel := context.WithTimeout(c.Context(), 5*time.Second)
 		defer cancel()
 
@@ -99,6 +112,8 @@ func (v *CognitoVerifier) FiberMiddleware() fiber.Handler {
 		}
 
 		// access tokens commonly carry client id in "client_id"
+		// wrote return values + call in if statement since these are one-offs.
+		// when written like this, the return values aren't accessible outside the scope of this if statement
 		if cid, ok := tok.Get("client_id"); !ok || cid != v.cfg.ClientID {
 			return fiber.ErrUnauthorized
 		}
