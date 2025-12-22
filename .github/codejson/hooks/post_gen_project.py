@@ -7,15 +7,15 @@ from datetime import datetime, timezone
 def get_date_fields():
     # Run git commands and capture as string
     output = subprocess.run(['git', 'log', '--date=iso', '--pretty=%cI', '--max-parents=0', '-n', '1'], capture_output=True, text=True)
-    
+
     # Store string and strip of leading / trailing whitespace
     date =  output.stdout.strip()
-    
+
     # Parse the git timestamp and convert to UTC
     git_date = datetime.fromisoformat(date)
     utc_date = git_date.astimezone(timezone.utc)
     created_date = utc_date.strftime('%Y-%m-%dT%H:%M:%SZ')
-    
+
     # Generate current UTC timestamps using the new recommended method
     current_utc = datetime.now(timezone.utc)
     current_timestamp = current_utc.strftime('%Y-%m-%dT%H:%M:%SZ')
@@ -43,12 +43,12 @@ def get_scc_labor_hours():
 
             cmd.extend(files_to_exclude)
 
-            d = json.loads(subprocess.run(cmd,check=True, capture_output=True).stdout) 
-                       
+            d = json.loads(subprocess.run(cmd,check=True, capture_output=True).stdout)
+
             l_hours = d['estimatedScheduleMonths'] * 730.001
 
             return round(l_hours,2)
-            
+
         except (subprocess.CalledProcessError, KeyError) as e:
             print(e)
             return None
@@ -65,7 +65,7 @@ def prompt_exemption_text(exemptionType):
 def format_multi_select_fields(text):
     if text == "":
         return []
-    
+
     new_text = text.split(",")
 
     new_text = [text.strip() for text in new_text]
@@ -73,7 +73,7 @@ def format_multi_select_fields(text):
     return new_text
 
 def update_code_json(json_file_path):
-    # Read the JSON 
+    # Read the JSON
     with open(json_file_path, 'r') as file:
         data = json.load(file)
 
@@ -105,11 +105,11 @@ def update_code_json(json_file_path):
         data['reuseFrequency']['forks'] = int(data['reuseFrequency']['forks'])
     if data['reuseFrequency']['clones'].isdigit():
         data['reuseFrequency']['clones'] = int(data['reuseFrequency']['clones'])
-    
+
     data['localisation'] = eval(data['localisation'])
     data['userInput'] = eval(data['userInput'])
 
-    # Update the JSON 
+    # Update the JSON
     with open(json_file_path, 'w') as file:
         json.dump(data, file, indent = 2)
 
@@ -131,12 +131,12 @@ def main():
         project_root_dir = os.path.abspath('..')
 
         json_file_path = os.path.join(sub_project_dir, codejson_file)
-    
+
         if os.path.exists(json_file_path):
             # Move code.json file to parent directory
             new_json_path = os.path.join(project_root_dir, codejson_file)
             shutil.move(json_file_path, new_json_path)
-        
+
             # Remove the source directory
             shutil.rmtree(sub_project_dir)
 

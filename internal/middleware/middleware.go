@@ -45,7 +45,7 @@ func NewCognitoVerifier(cfg CognitoConfig) (*CognitoVerifier, error) {
 	}
 
 	issuer := fmt.Sprintf("https://cognito-idp.%s.amazonaws.com/%s", cfg.Region, cfg.UserPoolID)
-	jwksURL := fmt.Sprintf("%s/.well-known/jwks.json", issuer)
+	jwksURL := issuer + "/.well-known/jwks.json"
 
 	cache := jwk.NewCache(context.Background())
 	// register the JWKS URL with a refresh window

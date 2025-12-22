@@ -12,12 +12,13 @@ This project evolved out of the [IVaaS](https://github.com/DSACMS/iv-cbv-payroll
 
 A list of core team members responsible for the code and documentation in this repository can be found in [COMMUNITY.md](COMMUNITY.md).
 
-<!--
 ## Local Development
 
-TODO - with example below:
-This project is monorepo with several apps. Please see the [api](./api/README.md) and [frontend](./frontend/README.md) READMEs for information on spinning up those projects locally. Also see the project [documentation](./documentation) for more info.
--->
+This project uses [pre-commit](https://pre-commit.com/ "pre-commit Docs") to register git hooks that run our various linters. You can [install](https://pre-commit.com/#install "Installation Instructions") pre-commit and then run:
+
+```sh
+pre-commit install
+```
 
 ## Policies
 
