@@ -8,7 +8,7 @@
       {
         "name": "{{ cookiecutter.license }}",
         "URL": "{{cookiecutter.license_url}}"
-        
+
       }
     ],
     "usageType": [ "{{ cookiecutter.usage_type }}" ],
