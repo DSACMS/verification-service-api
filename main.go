@@ -68,6 +68,7 @@ func buildApp() (*fiber.App, error) {
 		UserPoolID: os.Getenv("COGNITO_USER_POOL_ID"),
 		ClientID:   os.Getenv("COGNITO_APP_CLIENT_ID"),
 	})
+
 	if err != nil {
 		return nil, err
 	}
