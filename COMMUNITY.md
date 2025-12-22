@@ -1,6 +1,6 @@
 # COMMUNITY.md
 
-{{ cookiecutter.project_repo_name }} is supported by a dedicated team of individuals fulfilling various roles to ensure its success, security, and alignment with government standards and agency goals.
+verification-services-api is supported by a dedicated team of individuals fulfilling various roles to ensure its success, security, and alignment with government standards and agency goals.
 
 ## Project Members
 
