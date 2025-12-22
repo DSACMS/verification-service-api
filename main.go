@@ -56,6 +56,7 @@ func buildApp() *fiber.App {
 		UserPoolID: os.Getenv("COGNITO_USER_POOL_ID"),
 		ClientID:   os.Getenv("COGNITO_APP_CLIENT_ID"),
 	})
+
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -80,6 +81,7 @@ func runServer(ctx context.Context, app *fiber.App, addr string) error {
 	case <-ctx.Done():
 	}
 
+	// inline if since this err is only needed in the scope of this if statement.
 	if err := app.ShutdownWithTimeout(5 * time.Second); err != nil {
 		return fmt.Errorf("error during shutdown: %w", err)
 	}

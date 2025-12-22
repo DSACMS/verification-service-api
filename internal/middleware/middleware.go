@@ -65,8 +65,18 @@ func NewCognitoVerifierWithURLs(cfg CognitoConfig, issuer, jwksURL string) (*Cog
 	if cfg.ClientID == "" {
 		return nil, errors.New("ClientID is required")
 	}
-	if issuer == "" || jwksURL == "" {
-		return nil, errors.New("issuer and jwksURL are required")
+
+	// if issuer == "" || jwksURL == "" {
+	// 	return nil, errors.New("issuer and jwksURL are required")
+	// }
+
+	// split to specify which is missing ^^^
+	if issuer == "" {
+		return nil, errors.New("issuer is required")
+	}
+
+	if jwksURL == "" {
+		return nil, errors.New("jwksURL is required")
 	}
 
 	cache := jwk.NewCache(context.Background())
@@ -119,6 +129,7 @@ func (v *CognitoVerifier) FiberMiddleware() fiber.Handler {
 		}
 
 		// put useful info on context
+		// save to c.locals to store termporary variables in the request's scope. They are only available to routes matching the request and go away when the request is handled
 		if sub, ok := tok.Get("sub"); ok {
 			c.Locals("sub", sub)
 		}
