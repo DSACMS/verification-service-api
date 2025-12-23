@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/DSACMS/verification-service-api/internal/config"
 	"github.com/gofiber/fiber/v2/log"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc"
@@ -23,7 +24,7 @@ var ServiceVersion string
 
 func newConn() (*grpc.ClientConn, error) {
 	conn, e := grpc.NewClient(
-		"localhost:4317",
+		config.AppConfig.Otel.OtlpExporter.Endpoint,
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 	)
 
