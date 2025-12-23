@@ -11,7 +11,7 @@ import (
 )
 
 type OtlpConfig struct {
-	Endpoint string `env:"ENDPOINT" envDefault:"https://localhost:4317"`
+	Endpoint string `env:"ENDPOINT" envDefault:"localhost:4317"`
 	Insecure bool   `env:"INSECURE" envDefault:"false"`
 }
 
@@ -26,6 +26,14 @@ type Config struct {
 
 var AppConfig Config
 
+func loadEnv(filename string) error {
+	err := godotenv.Load(filename)
+	if err == nil || errors.Is(err, os.ErrNotExist) {
+		return nil
+	}
+	return fmt.Errorf("error loading file %s: %w", filename, err)
+}
+
 func init() {
 	var err error
 	var errs error
@@ -33,7 +41,7 @@ func init() {
 	environment := getEnv("ENVIRONMENT", "development")
 	if environment != "" {
 		file := ".env" + environment + ".local"
-		err = godotenv.Load(file)
+		err = loadEnv(file)
 		if err != nil {
 			errs = errors.Join(
 				errs,
@@ -42,7 +50,7 @@ func init() {
 		}
 	}
 
-	err = godotenv.Load(".env.local")
+	err = loadEnv(".env.local")
 	if err != nil {
 		errs = errors.Join(
 			errs,
@@ -50,7 +58,7 @@ func init() {
 		)
 	}
 
-	err = godotenv.Load()
+	err = loadEnv(".env")
 	if err != nil {
 		errs = errors.Join(
 			errs,
