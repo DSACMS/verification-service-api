@@ -6,6 +6,8 @@ services:
       - "8000:8000"
     volumes:
       - ./:/project-package/
+    depends_on:
+      - otel-collector
 
   jaeger-all-in-one:
     image: jaegertracing/all-in-one:latest
@@ -31,6 +33,7 @@ services:
       - "55679:55679" # zpages extension
     depends_on:
       - jaeger-all-in-one
+      - prometheus
 
   prometheus:
     container_name: prometheus
