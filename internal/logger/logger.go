@@ -38,11 +38,11 @@ func init() {
 		),
 	)
 
-	config := slogfiber.Config{
+	slogConfig := slogfiber.Config{
 		WithRequestID: true,
 		WithSpanID:    true,
 		WithTraceID:   true,
 	}
 
-	Middleware = slogfiber.NewWithConfig(Logger, config)
+	Middleware = slogfiber.NewWithConfig(Logger, slogConfig)
 }

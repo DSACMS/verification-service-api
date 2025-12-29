@@ -6,7 +6,7 @@ import (
 	"fmt"
 
 	"github.com/DSACMS/verification-service-api/internal/config"
-	"github.com/gofiber/fiber/v2/log"
+	"github.com/gofiber/fiber/v2"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
@@ -48,8 +48,6 @@ func newResource(ctx context.Context) (*resource.Resource, error) {
 			semconv.ServiceVersion(ServiceVersion),
 		),
 	)
-
-	log.Infof("ServiceVersion = %s", ServiceVersion)
 
 	if e == nil {
 		return res, nil
@@ -142,4 +140,18 @@ func InitOtel(ctx context.Context) (func(context.Context) error, error) {
 	Tracer = otel.Tracer("verification-service-api")
 
 	return shutdownOtel, nil
+}
+
+func StartSpan(ctx *fiber.Ctx, spanName string, opts ...trace.SpanStartOption) (trace.Span, func(opts ...trace.SpanEndOption)) {
+	curCtx := ctx.UserContext()
+	newCtx, span := Tracer.Start(curCtx, spanName, opts...)
+
+	ctx.SetUserContext(newCtx)
+
+	spanEndFn := func(options ...trace.SpanEndOption) {
+		ctx.SetUserContext(curCtx)
+		span.End(options...)
+	}
+
+	return span, spanEndFn
 }

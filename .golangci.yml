@@ -91,6 +91,8 @@ linters:
         - diagnostic
         - style
         - performance
+      disabled-checks:
+        - unnamedResult
       settings:
         captLocal:
           paramsOnly: false
@@ -129,6 +131,12 @@ linters:
     revive:
       enable-all-rules: true
       rules:
+        - name: var-naming
+          disabled: false
+          arguments:
+            - []
+            - []
+            - - skip-package-name-checks: true
         - name: add-constant
           disabled: true
         - name: argument-limit

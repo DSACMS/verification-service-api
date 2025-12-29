@@ -18,10 +18,15 @@ type OtelConfig struct {
 	OtlpExporter OtlpConfig `envPrefix:"EXPORTER_OTLP_"`
 }
 
+type RedisConfig struct {
+	Addr string `env:"ADDR" envDefault:"localhost:6379"`
+}
+
 type Config struct {
-	Environment string     `env:"ENVIRONMENT" envDefault:"development"`
-	Port        string     `env:"PORT" envDefault:"8080"`
-	Otel        OtelConfig `envPrefix:"OTEL_"`
+	Environment string      `env:"ENVIRONMENT" envDefault:"development"`
+	Port        string      `env:"PORT" envDefault:"8080"`
+	Redis       RedisConfig `envPrefix:"REDIS_"`
+	Otel        OtelConfig  `envPrefix:"OTEL_"`
 }
 
 var AppConfig Config
