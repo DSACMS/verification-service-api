@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 
+	"github.com/DSACMS/verification-service-api/internal/logger"
 	"github.com/caarlos0/env/v11"
 	"github.com/joho/godotenv"
 )
@@ -87,7 +88,13 @@ func getEnv(key, fallback string) string {
 		return value
 	}
 
-	log.Printf("No env variable matching %v found... using fallback", key)
+	logger.Logger.Debug(
+		"No matching env var found, using fallback",
+		"key",
+		key,
+		"fallback",
+		fallback,
+	)
 
 	return fallback
 }
