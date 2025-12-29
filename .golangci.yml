@@ -11,6 +11,7 @@ linters:
     - containedctx
     - contextcheck
     - copyloopvar
+    - depguard
     - decorder
     - dogsled
     - dupword
@@ -64,6 +65,17 @@ linters:
     - wrapcheck
     - zerologlint
   settings:
+    depguard:
+      rules:
+        all:
+          files:
+            - $all
+          list-mode: lax
+          deny:
+            - pkg: log$
+              desc: logging is provided by slog or internal/logging
+            - pkg: github.com/gofiber/fiber/v2/log
+              desc: logging is provided by slog or internal/logging
     errcheck:
       disable-default-exclusions: true
       check-type-assertions: true
@@ -100,6 +112,7 @@ linters:
     loggercheck:
       require-string-key: true
       no-printf-like: true
+      slog: true
     misspell:
       locale: US
     nolintlint:

@@ -3,7 +3,6 @@ package config
 import (
 	"errors"
 	"fmt"
-	"log"
 	"os"
 
 	"github.com/caarlos0/env/v11"
@@ -20,8 +19,9 @@ type OtelConfig struct {
 }
 
 type Config struct {
-	Port string     `env:"PORT" envDefault:"8080"`
-	Otel OtelConfig `envPrefix:"OTEL_"`
+	Environment string     `env:"ENVIRONMENT" envDefault:"development"`
+	Port        string     `env:"PORT" envDefault:"8080"`
+	Otel        OtelConfig `envPrefix:"OTEL_"`
 }
 
 var AppConfig Config
@@ -87,7 +87,9 @@ func getEnv(key, fallback string) string {
 		return value
 	}
 
-	log.Printf("No env variable matching %v found... using fallback", key)
-
 	return fallback
+}
+
+func IsProd() bool {
+	return AppConfig.Environment == "production"
 }
