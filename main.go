@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"runtime/debug"
 	"syscall"
 	"time"
 
@@ -13,10 +14,13 @@ import (
 	"github.com/DSACMS/verification-service-api/internal/middleware"
 	"github.com/DSACMS/verification-service-api/internal/otel"
 	"github.com/DSACMS/verification-service-api/internal/router"
+	"go.opentelemetry.io/otel/codes"
+	"go.opentelemetry.io/otel/trace"
 
 	"github.com/gofiber/contrib/otelfiber/v2"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
+	"github.com/gofiber/fiber/v2/middleware/recover"
 )
 
 func main() {
@@ -81,9 +85,33 @@ func run() error {
 }
 
 func buildApp() (*fiber.App, error) {
-	app := fiber.New()
+	app := fiber.New(fiber.Config{
+		ErrorHandler: func(ctx *fiber.Ctx, err error) error {
+			span := trace.SpanFromContext(ctx.Context())
+			span.RecordError(err)
+			span.SetStatus(codes.Error, "Internal Service Error")
+
+			logger.Logger.Error("Internal Service Error", "err", err)
+
+			return ctx.Status(fiber.StatusInternalServerError).SendString(fiber.ErrInternalServerError.Message)
+		},
+	})
 
 	app.Use(logger.Middleware)
+	app.Use(recover.New(recover.Config{
+		EnableStackTrace: true,
+		StackTraceHandler: func(c *fiber.Ctx, e any) {
+			stack := debug.Stack()
+			logger.Logger.ErrorContext(
+				c.Context(),
+				"panic!",
+				"stack",
+				stack,
+				"err",
+				e,
+			)
+		},
+	}))
 
 	app.Use(cors.New(cors.Config{
 		AllowOrigins: "*",
