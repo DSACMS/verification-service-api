@@ -4,6 +4,7 @@ import (
 	"log/slog"
 	"os"
 
+	"github.com/DSACMS/verification-service-api/internal/config"
 	"github.com/gofiber/fiber/v2"
 	slogfiber "github.com/samber/slog-fiber"
 	slogmulti "github.com/samber/slog-multi"
@@ -22,7 +23,13 @@ func init() {
 		"verification-service-api",
 		otelslog.WithLoggerProvider(provider),
 	)
-	stdoutHandler := slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{})
+
+	var stdoutHandler slog.Handler
+	if config.IsProd() {
+		stdoutHandler = slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{})
+	} else {
+		stdoutHandler = slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{})
+	}
 
 	Logger = slog.New(
 		slogmulti.Fanout(
