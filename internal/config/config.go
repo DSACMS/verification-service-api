@@ -3,10 +3,8 @@ package config
 import (
 	"errors"
 	"fmt"
-	"log"
 	"os"
 
-	"github.com/DSACMS/verification-service-api/internal/logger"
 	"github.com/caarlos0/env/v11"
 	"github.com/joho/godotenv"
 )
@@ -21,8 +19,9 @@ type OtelConfig struct {
 }
 
 type Config struct {
-	Port string     `env:"PORT" envDefault:"8080"`
-	Otel OtelConfig `envPrefix:"OTEL_"`
+	Environment string     `env:"ENVIRONMENT" envDefault:"development"`
+	Port        string     `env:"PORT" envDefault:"8080"`
+	Otel        OtelConfig `envPrefix:"OTEL_"`
 }
 
 var AppConfig Config
@@ -88,13 +87,9 @@ func getEnv(key, fallback string) string {
 		return value
 	}
 
-	logger.Logger.Debug(
-		"No matching env var found, using fallback",
-		"key",
-		key,
-		"fallback",
-		fallback,
-	)
-
 	return fallback
+}
+
+func IsProd() bool {
+	return AppConfig.Environment == "production"
 }
