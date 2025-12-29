@@ -3,57 +3,114 @@ package main
 import (
 	"context"
 	"fmt"
-	"log"
 	"os"
 	"os/signal"
+	"runtime/debug"
 	"syscall"
 	"time"
 
-	"github.com/DSACMS/verification-service-api/internal/config"
+	"github.com/DSACMS/verification-service-api/internal/logger"
 	"github.com/DSACMS/verification-service-api/internal/middleware"
 	"github.com/DSACMS/verification-service-api/internal/otel"
 	"github.com/DSACMS/verification-service-api/internal/router"
+	"go.opentelemetry.io/otel/codes"
+	"go.opentelemetry.io/otel/trace"
 
 	"github.com/gofiber/contrib/otelfiber/v2"
 	"github.com/gofiber/fiber/v2"
 	"github.com/gofiber/fiber/v2/middleware/cors"
+	"github.com/gofiber/fiber/v2/middleware/recover"
 )
 
 func main() {
-	log.Printf("Config: %+v\n", config.AppConfig)
+	err := run()
+	if err != nil {
+		os.Exit(1)
+	}
+
+	os.Exit(0)
+}
+
+func run() error {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
 	shutdownOtel, err := otel.InitOtel(ctx)
 	if err != nil {
-		log.Println(err)
+		logger.Logger.ErrorContext(
+			ctx,
+			"Otel error",
+			"err",
+			err,
+		)
+		return err
 	}
-	defer func() {
-		shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-		defer cancel()
-		shutdownErr := shutdownOtel(shutdownCtx)
-		if shutdownErr != nil {
-			log.Printf("Error during shutdown: %v", shutdownErr)
-		}
-	}()
-
-	_, span := otel.Tracer.Start(ctx, "startup")
-	span.AddEvent("Starting up")
-	span.End()
+	if shutdownOtel != nil {
+		defer func() {
+			shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			shutdownErr := shutdownOtel(shutdownCtx)
+			logger.Logger.ErrorContext(
+				shutdownCtx,
+				"Error shutting down otel",
+				"err",
+				shutdownErr,
+			)
+		}()
+	}
 
 	app, err := buildApp()
 	if err != nil {
-		log.Printf("Failed to build app: %v\n", err)
-		return
+		logger.Logger.ErrorContext(
+			ctx,
+			"Error building app",
+			"err",
+			err,
+		)
+		return err
 	}
 
 	if err := runServer(ctx, app, ":8000"); err != nil {
-		log.Printf("server error: %v", err)
+		logger.Logger.ErrorContext(
+			ctx,
+			"Server error",
+			"err",
+			err,
+		)
+		return err
 	}
+
+	return nil
 }
 
 func buildApp() (*fiber.App, error) {
-	app := fiber.New()
+	app := fiber.New(fiber.Config{
+		ErrorHandler: func(ctx *fiber.Ctx, err error) error {
+			span := trace.SpanFromContext(ctx.Context())
+			span.RecordError(err)
+			span.SetStatus(codes.Error, "Internal Service Error")
+
+			logger.Logger.Error("Internal Service Error", "err", err)
+
+			return ctx.Status(fiber.StatusInternalServerError).SendString(fiber.ErrInternalServerError.Message)
+		},
+	})
+
+	app.Use(logger.Middleware)
+	app.Use(recover.New(recover.Config{
+		EnableStackTrace: true,
+		StackTraceHandler: func(c *fiber.Ctx, e any) {
+			stack := debug.Stack()
+			logger.Logger.ErrorContext(
+				c.Context(),
+				"panic!",
+				"stack",
+				stack,
+				"err",
+				e,
+			)
+		},
+	}))
 
 	app.Use(cors.New(cors.Config{
 		AllowOrigins: "*",
