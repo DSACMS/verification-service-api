@@ -28,7 +28,7 @@ type CognitoVerifier struct {
 
 func NewCognitoVerifier(cfg CognitoConfig) (*CognitoVerifier, error) {
 	// if cfg.Region == "" || cfg.UserPoolID == "" || cfg.ClientID == "" {
-	// 	return nil, errors.New("Region, UserPoolID, and ClientID are required")
+	//		return nil, errors.New("Region, UserPoolID, and ClientID are required")
 	// }
 
 	// split to specify which is missing ^^^
@@ -67,7 +67,7 @@ func NewCognitoVerifierWithURLs(cfg CognitoConfig, issuer, jwksURL string) (*Cog
 	}
 
 	// if issuer == "" || jwksURL == "" {
-	// 	return nil, errors.New("issuer and jwksURL are required")
+	//		return nil, errors.New("issuer and jwksURL are required")
 	// }
 
 	// split to specify which is missing ^^^

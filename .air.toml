@@ -7,7 +7,7 @@ tmp_dir = "tmp"
 [build]
   args_bin = []
   bin = "./tmp/main"
-  cmd = "go build -o ./tmp/main ."
+  cmd = "go build -o ./tmp/main -ldflags \"-X github.com/DSACMS/verification-service-api/internal/otel.ServiceVersion=local\" ."
   delay = 1000
   entrypoint = ["./tmp/main"]
   exclude_dir = ["assets", "tmp", "vendor", "testdata"]
@@ -22,7 +22,7 @@ tmp_dir = "tmp"
   full_bin = ""
   include_dir = []
   include_ext = ["go", "tpl", "tmpl", "html"]
-  include_file = []
+  include_file = [".env", ".env.*"]
   kill_delay = "0s"
   log = "build-errors.log"
   poll = false
