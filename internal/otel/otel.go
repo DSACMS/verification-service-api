@@ -4,9 +4,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
-
+	. "github.com/DSACMS/verification-service-api/internal"
 	"github.com/DSACMS/verification-service-api/internal/config"
-	"github.com/gofiber/fiber/v2"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/exporters/otlp/otlpmetric/otlpmetricgrpc"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
@@ -142,7 +141,7 @@ func InitOtel(ctx context.Context) (func(context.Context) error, error) {
 	return shutdownOtel, nil
 }
 
-func StartSpan(ctx *fiber.Ctx, spanName string, opts ...trace.SpanStartOption) (trace.Span, func(opts ...trace.SpanEndOption)) {
+func StartSpan[C context.Context](ctx Ctx[C], spanName string, opts ...trace.SpanStartOption) (trace.Span, func(opts ...trace.SpanEndOption)) {
 	curCtx := ctx.UserContext()
 	newCtx, span := Tracer.Start(curCtx, spanName, opts...)
 

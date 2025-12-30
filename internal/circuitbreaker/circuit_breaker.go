@@ -1,15 +1,16 @@
 package circuitbreaker
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"strconv"
 	"time"
 
+	. "github.com/DSACMS/verification-service-api/internal"
 	"github.com/DSACMS/verification-service-api/internal/logger"
 	"github.com/DSACMS/verification-service-api/internal/otel"
 	"github.com/DSACMS/verification-service-api/internal/resources"
-	"github.com/gofiber/fiber/v2"
 	"github.com/redis/go-redis/v9"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
@@ -41,7 +42,7 @@ func (s State) String() string {
 	return stateName[s]
 }
 
-func saveOpenAt(ctx *fiber.Ctx, key string, openUntil time.Time) error {
+func saveOpenAt[C context.Context](ctx Ctx[C], key string, openUntil time.Time) error {
 	rdb := resources.RedisClient(ctx)
 	openUntilStr := strconv.FormatInt(openUntil.Unix(), 10)
 	_, err := rdb.Set(
@@ -57,7 +58,7 @@ func saveOpenAt(ctx *fiber.Ctx, key string, openUntil time.Time) error {
 	return nil
 }
 
-func saveClose(ctx *fiber.Ctx, key string) error {
+func saveClose[C context.Context](ctx Ctx[C], key string) error {
 	rdb := resources.RedisClient(ctx)
 	_, err := rdb.Del(ctx.Context(), key).Result()
 	if err != nil {
@@ -67,7 +68,7 @@ func saveClose(ctx *fiber.Ctx, key string) error {
 	return nil
 }
 
-func getOpenAt(ctx *fiber.Ctx, key string) (*time.Time, error) {
+func getOpenAt[C context.Context](ctx Ctx[C], key string) (*time.Time, error) {
 	rdb := resources.RedisClient(ctx)
 	openUntilStr, getErr := rdb.Get(ctx.Context(), key).Result()
 	if errors.Is(getErr, redis.Nil) {
@@ -102,7 +103,7 @@ func (c *CircuitBreaker[T]) Key() string {
 	return "circuit-breaker:" + c.ID
 }
 
-func (c *CircuitBreaker[T]) SetOpen(ctx *fiber.Ctx) {
+func (c *CircuitBreaker[T]) SetOpen(ctx Ctx[context.Context]) {
 	span, endSpan := otel.StartSpan(
 		ctx,
 		"utils.circuit_breaker.SetOpen",
@@ -135,7 +136,7 @@ func (c *CircuitBreaker[T]) SetOpen(ctx *fiber.Ctx) {
 	}
 }
 
-func (c *CircuitBreaker[T]) SetClosed(ctx *fiber.Ctx) {
+func (c *CircuitBreaker[T]) SetClosed(ctx Ctx[context.Context]) {
 	span, endSpan := otel.StartSpan(
 		ctx,
 		"utils.circuit_breaker.SetClosed",
@@ -167,7 +168,7 @@ func (c *CircuitBreaker[T]) SetClosed(ctx *fiber.Ctx) {
 	}
 }
 
-func (c *CircuitBreaker[T]) GetState(ctx *fiber.Ctx) State {
+func (c *CircuitBreaker[T]) GetState(ctx Ctx[context.Context]) State {
 	_, endSpan := otel.StartSpan(
 		ctx,
 		"utils.circuit_breaker.GetOpen",
@@ -204,7 +205,7 @@ func (c *CircuitBreaker[T]) GetState(ctx *fiber.Ctx) State {
 	return Open
 }
 
-func (c *CircuitBreaker[T]) Run(ctx *fiber.Ctx) (*T, error) {
+func (c *CircuitBreaker[T]) Run(ctx Ctx[context.Context]) (*T, error) {
 	span, endSpan := otel.StartSpan(
 		ctx,
 		"utils.circuit_breaker.Run",
