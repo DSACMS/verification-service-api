@@ -1,16 +1,18 @@
 package resources
 
 import (
+	"context"
 	"errors"
 
 	"github.com/DSACMS/verification-service-api/internal/config"
 	"github.com/DSACMS/verification-service-api/internal/logger"
-	"github.com/gofiber/fiber/v2"
 	"github.com/redis/go-redis/extra/redisotel/v9"
 	"github.com/redis/go-redis/v9"
+
+	. "github.com/DSACMS/verification-service-api/internal"
 )
 
-func newClient(ctx *fiber.Ctx) *redis.Client {
+func newClient[C context.Context](ctx Ctx[C]) *redis.Client {
 	rdb := redis.NewClient(&redis.Options{
 		Addr: config.AppConfig.Redis.Addr,
 	})
@@ -31,7 +33,7 @@ func newClient(ctx *fiber.Ctx) *redis.Client {
 	return rdb
 }
 
-func RedisClient(ctx *fiber.Ctx) *redis.Client {
+func RedisClient[C context.Context](ctx Ctx[C]) *redis.Client {
 	rdb, ok := ctx.Locals("rdb").(*redis.Client)
 	if ok {
 		return rdb
