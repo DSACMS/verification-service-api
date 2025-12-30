@@ -1,4 +1,4 @@
-package config
+package core
 
 import (
 	"errors"
@@ -22,9 +22,8 @@ type Config struct {
 	Environment string     `env:"ENVIRONMENT" envDefault:"development"`
 	Port        string     `env:"PORT" envDefault:"8080"`
 	Otel        OtelConfig `envPrefix:"OTEL_"`
+	SkipAuth    bool       `env:"SKIP_AUTH" envDefault:"false"`
 }
-
-var AppConfig Config
 
 func loadEnv(filename string) error {
 	err := godotenv.Load(filename)
@@ -34,7 +33,7 @@ func loadEnv(filename string) error {
 	return fmt.Errorf("error loading file %s: %w", filename, err)
 }
 
-func init() {
+func NewConfig() (Config, error) {
 	var err error
 	var errs error
 
@@ -66,7 +65,8 @@ func init() {
 		)
 	}
 
-	err = env.Parse(&AppConfig)
+	config := Config{}
+	err = env.Parse(&config)
 	if err != nil {
 		errs = errors.Join(
 			errs,
@@ -74,9 +74,7 @@ func init() {
 		)
 	}
 
-	if errs != nil {
-		panic(errs)
-	}
+	return config, errs
 }
 
 func getEnv(key, fallback string) string {
@@ -90,6 +88,6 @@ func getEnv(key, fallback string) string {
 	return fallback
 }
 
-func IsProd() bool {
-	return AppConfig.Environment == "production"
+func (c Config) IsProd() bool {
+	return c.Environment == "production"
 }
