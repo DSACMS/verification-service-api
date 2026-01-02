@@ -5,6 +5,10 @@ import (
 	"net/http"
 	"strings"
 	"testing"
+
+	"github.com/DSACMS/verification-service-api/internal/logger"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 type routeTest struct {
@@ -15,10 +19,10 @@ type routeTest struct {
 }
 
 func TestRoutes(t *testing.T) {
+	logger.Setup(io.Discard)
+
 	app, err := buildApp(AppOptions{SkipAuth: true})
-	if err != nil {
-		t.Fatalf("buildApp error: %v", err)
-	}
+	require.NoError(t, err, "buildApp error")
 
 	tests := []routeTest{
 		{
@@ -38,36 +42,35 @@ func TestRoutes(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.description, func(t *testing.T) {
 			req, err := http.NewRequest(http.MethodGet, tt.route, nil)
-			if err != nil {
-				t.Fatalf("http.NewRequest error: %v", err)
-			}
+			require.NoErrorf(t, err, "http.NewRequest(%q) error", tt.route)
 
 			resp, err := app.Test(req, -1)
-			if err != nil {
-				t.Fatalf("app.Test error: %v", err)
-			}
+			require.NoErrorf(t, err, "app.Test(%q) error", tt.route)
+			require.NotNil(t, resp)
 			defer resp.Body.Close()
 
-			if resp.StatusCode != tt.expectedCode {
-				body, _ := io.ReadAll(resp.Body)
-				t.Fatalf(
-					"expected status %d, got %d. body=%q",
-					tt.expectedCode,
-					resp.StatusCode,
-					strings.TrimSpace(string(body)),
-				)
-			}
+			bodyBytes, err := io.ReadAll(resp.Body)
+			require.NoErrorf(t, err, "io.ReadAll body error for %q", tt.route)
+
+			body := strings.TrimSpace(string(bodyBytes))
+
+			assert.Equalf(
+				t,
+				tt.expectedCode,
+				resp.StatusCode,
+				"unexpected status for %q. body=%q",
+				tt.route,
+				body,
+			)
 
 			if tt.expectedBody != "" {
-				bodyBytes, err := io.ReadAll(resp.Body)
-				if err != nil {
-					t.Fatalf("io.ReadAll error: %v", err)
-				}
-				body := strings.TrimSpace(string(bodyBytes))
-
-				if body != tt.expectedBody {
-					t.Fatalf("expected body %q, got %q", tt.expectedBody, body)
-				}
+				assert.Equalf(
+					t,
+					tt.expectedBody,
+					body,
+					"unexpected body for %q",
+					tt.route,
+				)
 			}
 		})
 	}

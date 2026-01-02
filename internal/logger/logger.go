@@ -1,8 +1,8 @@
 package logger
 
 import (
+	"io"
 	"log/slog"
-	"os"
 
 	"github.com/DSACMS/verification-service-api/internal/config"
 	"github.com/gofiber/fiber/v2"
@@ -17,7 +17,7 @@ var (
 	Middleware fiber.Handler
 )
 
-func init() {
+func Setup(out io.Writer) {
 	provider := log.NewLoggerProvider()
 	otelHandler := otelslog.NewHandler(
 		"verification-service-api",
@@ -26,9 +26,9 @@ func init() {
 
 	var stdoutHandler slog.Handler
 	if config.IsProd() {
-		stdoutHandler = slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{})
+		stdoutHandler = slog.NewTextHandler(out, &slog.HandlerOptions{})
 	} else {
-		stdoutHandler = slog.NewJSONHandler(os.Stdout, &slog.HandlerOptions{})
+		stdoutHandler = slog.NewJSONHandler(out, &slog.HandlerOptions{})
 	}
 
 	Logger = slog.New(
@@ -38,11 +38,11 @@ func init() {
 		),
 	)
 
-	config := slogfiber.Config{
+	cfg := slogfiber.Config{
 		WithRequestID: true,
 		WithSpanID:    true,
 		WithTraceID:   true,
 	}
 
-	Middleware = slogfiber.NewWithConfig(Logger, config)
+	Middleware = slogfiber.NewWithConfig(Logger, cfg)
 }
