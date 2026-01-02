@@ -15,6 +15,7 @@ type OtlpConfig struct {
 }
 
 type OtelConfig struct {
+	Disable      bool       `env:"DISABLE" envDefault:"false"`
 	OtlpExporter OtlpConfig `envPrefix:"EXPORTER_OTLP_"`
 }
 
