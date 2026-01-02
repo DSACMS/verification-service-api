@@ -5,9 +5,10 @@ import (
 	"fmt"
 	"log/slog"
 	"runtime/debug"
-	"verification-service-api/api/middleware"
-	"verification-service-api/api/routes"
-	"verification-service-api/pkg/core"
+
+	"github.com/DSACMS/verification-service-api/api/middleware"
+	"github.com/DSACMS/verification-service-api/api/routes"
+	"github.com/DSACMS/verification-service-api/pkg/core"
 
 	"go.opentelemetry.io/otel/codes"
 

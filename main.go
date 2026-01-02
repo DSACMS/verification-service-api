@@ -9,8 +9,9 @@ import (
 	"os/signal"
 	"syscall"
 	"time"
-	"verification-service-api/api"
-	"verification-service-api/pkg/core"
+
+	"github.com/DSACMS/verification-service-api/api"
+	"github.com/DSACMS/verification-service-api/pkg/core"
 
 	"github.com/gofiber/fiber/v2"
 )
