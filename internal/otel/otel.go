@@ -22,6 +22,21 @@ import (
 
 var ServiceVersion string
 
+// needed for testing
+type OTelDeps struct {
+	SpanProcessor sdktrace.SpanProcessor
+}
+
+func newTracerProvider(res *resource.Resource, deps OTelDeps) *sdktrace.TracerProvider {
+	opts := []sdktrace.TracerProviderOption{
+		sdktrace.WithResource(res),
+	}
+	if deps.SpanProcessor != nil {
+		opts = append(opts, sdktrace.WithSpanProcessor(deps.SpanProcessor))
+	}
+	return sdktrace.NewTracerProvider(opts...)
+}
+
 func newConn() (*grpc.ClientConn, error) {
 	conn, e := grpc.NewClient(
 		config.AppConfig.Otel.OtlpExporter.Endpoint,
