@@ -25,7 +25,17 @@ func main() {
 }
 
 func run() error {
-	cfg, err := core.NewConfig()
+	err := core.LoadEnv()
+	if err != nil {
+		slog.Default().Error(
+			"Failed to load environment",
+			"err",
+			err,
+		)
+		return ErrRunFailed
+	}
+
+	cfg, err := core.NewConfigFromEnv()
 	if err != nil {
 		slog.Default().Error(
 			"Failed to get configuration",
@@ -38,7 +48,7 @@ func run() error {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	initLogger := core.NewLogger(cfg)
+	initLogger := core.NewLogger(&cfg)
 	otel, err := core.NewOtelService(ctx, &cfg)
 	if err != nil {
 		initLogger.ErrorContext(
@@ -51,8 +61,9 @@ func run() error {
 	}
 	defer otel.Shutdown(ctx, initLogger)
 
-	logger := core.NewLoggerWithOtel(cfg, otel)
-	app, err := api.New(api.Config{
+	logger := core.NewLoggerWithOtel(&cfg, otel)
+	app, err := api.New(&api.Config{
+		Config: cfg,
 		Logger: logger,
 		Otel:   otel,
 	})

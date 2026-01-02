@@ -21,20 +21,24 @@ type routeTest struct {
 
 func buildApp() (*fiber.App, error) {
 	ctx := context.TODO()
-	cfg, err := core.NewConfig()
+	cfg, err := core.NewConfigFromEnv(
+		core.WithEnvironment("test"),
+		core.WithSkipAuth(),
+		core.WithOtelDisable(),
+	)
 	if err != nil {
 		return nil, err
 	}
-	cfg.SkipAuth = true
 
 	otel, err := core.NewOtelService(ctx, &cfg)
 	if err != nil {
 		return nil, err
 	}
 
-	logger := core.NewLoggerWithOtel(cfg, otel)
+	logger := core.NewLoggerWithOtel(&cfg, otel)
 
-	return api.New((api.Config{
+	return api.New((&api.Config{
+		Config: cfg,
 		Logger: logger,
 		Otel:   otel,
 	}))

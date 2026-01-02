@@ -2,8 +2,10 @@ package api
 
 import (
 	"errors"
+	"fmt"
 	"log/slog"
 	"runtime/debug"
+	"verification-service-api/api/middleware"
 	"verification-service-api/api/routes"
 	"verification-service-api/pkg/core"
 
@@ -59,11 +61,12 @@ func stackTraceHandler(logger *slog.Logger) func(*fiber.Ctx, any) {
 }
 
 type Config struct {
-	Logger *slog.Logger
 	Otel   core.OtelService
+	Logger *slog.Logger
+	core.Config
 }
 
-func New(cfg Config) (*fiber.App, error) {
+func New(cfg *Config) (*fiber.App, error) {
 	fiberConfig := fiber.Config{
 		ErrorHandler: errorHandler(cfg.Logger, cfg.Otel),
 	}
@@ -92,6 +95,18 @@ func New(cfg Config) (*fiber.App, error) {
 			WithTraceID:   true,
 		},
 	))
+
+	if !cfg.SkipAuth {
+		verifier, err := middleware.NewCognitoVerifier(middleware.CognitoConfig{
+			Region:     cfg.Cognito.Region,
+			UserPoolID: cfg.Cognito.UserPoolID,
+			ClientID:   cfg.Cognito.AppClientID,
+		})
+		if err != nil {
+			return nil, fmt.Errorf("failed to initialize cognito middleware: %w", err)
+		}
+		app.Use(verifier.FiberMiddleware())
+	}
 
 	routes.StatusRouter(app)
 

@@ -4,29 +4,174 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"strconv"
 
-	"github.com/caarlos0/env/v11"
 	"github.com/joho/godotenv"
 )
 
 type OtlpConfig struct {
-	Endpoint string `env:"ENDPOINT" envDefault:"localhost:4317"`
-	Insecure bool   `env:"INSECURE" envDefault:"false"`
+	Endpoint string
+	Insecure bool
 }
 
 type OtelConfig struct {
-	Disable      bool       `env:"DISABLE" envDefault:"false"`
-	OtlpExporter OtlpConfig `envPrefix:"EXPORTER_OTLP_"`
+	OtlpExporter OtlpConfig
+	Disable      bool
+}
+
+type CognitoConfig struct {
+	Region      string
+	UserPoolID  string
+	AppClientID string
 }
 
 type Config struct {
-	Environment string     `env:"ENVIRONMENT" envDefault:"development"`
-	Port        string     `env:"PORT" envDefault:"8080"`
-	Otel        OtelConfig `envPrefix:"OTEL_"`
-	SkipAuth    bool       `env:"SKIP_AUTH" envDefault:"false"`
+	Cognito     CognitoConfig
+	Environment string
+	Otel        OtelConfig
+	Port        int
+	SkipAuth    bool
 }
 
-func loadEnv(filename string) error {
+func WithEnvironment(environment string) func(*Config) {
+	return func(c *Config) {
+		c.Environment = environment
+	}
+}
+
+func WithPort(port int) func(*Config) {
+	return func(c *Config) {
+		c.Port = port
+	}
+}
+
+func WithSkipAuth(value ...bool) func(*Config) {
+	val := true
+	if len(value) > 0 {
+		val = value[0]
+	}
+
+	return func(c *Config) {
+		c.SkipAuth = val
+	}
+}
+
+func WithOtlpEndpoint(endpoint string) func(*Config) {
+	return func(c *Config) {
+		c.Otel.OtlpExporter.Endpoint = endpoint
+	}
+}
+
+func WithOtlpInsecure(insecure bool) func(*Config) {
+	return func(c *Config) {
+		c.Otel.OtlpExporter.Insecure = insecure
+	}
+}
+
+func WithOtelDisable(value ...bool) func(*Config) {
+	val := true
+	if len(value) > 0 {
+		val = value[0]
+	}
+
+	return func(c *Config) {
+		c.Otel.Disable = val
+	}
+}
+
+func WithCognitoRegion(region string) func(*Config) {
+	return func(c *Config) {
+		c.Cognito.Region = region
+	}
+}
+
+func WithCognitoUserPoolID(userPoolID string) func(*Config) {
+	return func(c *Config) {
+		c.Cognito.UserPoolID = userPoolID
+	}
+}
+
+func WithCognitoAppClientID(appClientID string) func(*Config) {
+	return func(c *Config) {
+		c.Cognito.AppClientID = appClientID
+	}
+}
+
+func DefaultConfig() Config {
+	return Config{
+		Environment: "development",
+		Port:        8000,
+		SkipAuth:    false,
+		Otel: OtelConfig{
+			Disable: false,
+			OtlpExporter: OtlpConfig{
+				Endpoint: "localhost:4317",
+				Insecure: false,
+			},
+		},
+		Cognito: CognitoConfig{
+			Region:      "us-east-1",
+			UserPoolID:  "UNSET",
+			AppClientID: "UNSET",
+		},
+	}
+}
+
+func NewConfig(options ...func(*Config)) Config {
+	config := DefaultConfig()
+	for _, opt := range options {
+		opt(&config)
+	}
+	return config
+}
+
+func setFromEnv(loc any, key string) error {
+	strValue := os.Getenv(key)
+	if strValue == "" {
+		return nil
+	}
+
+	switch v := loc.(type) {
+	case *string:
+		(*v) = strValue
+	case *bool:
+		val, err := strconv.ParseBool(strValue)
+		if err != nil {
+			return fmt.Errorf("failed to parse %s as a bool: %w", strValue, err)
+		}
+		(*v) = val
+	case *int:
+		val, err := strconv.ParseInt(strValue, 10, strconv.IntSize)
+		if err != nil {
+			return fmt.Errorf("failed to parse %s as an int: %w", strValue, err)
+		}
+		(*v) = int(val)
+	}
+	return nil
+}
+
+func NewConfigFromEnv(options ...func(*Config)) (Config, error) {
+	config := DefaultConfig()
+	err := errors.Join(
+		setFromEnv(&config.Environment, "ENVIRONMENT"),
+		setFromEnv(&config.Port, "PORT"),
+		setFromEnv(&config.SkipAuth, "SKIP_AUTH"),
+		setFromEnv(&config.Otel.Disable, "OTEL_DISABLE"),
+		setFromEnv(&config.Otel.OtlpExporter.Endpoint, "OTEL_OTLP_EXPORTER_ENDPOINT"),
+		setFromEnv(&config.Otel.OtlpExporter.Insecure, "OTEL_OTLP_EXPORTER_INSECURE"),
+		setFromEnv(&config.Cognito.Region, "COGNITO_REGION"),
+		setFromEnv(&config.Cognito.UserPoolID, "COGNITO_USER_POOL_ID"),
+		setFromEnv(&config.Cognito.AppClientID, "COGNITO_APP_CLIENT_ID"),
+	)
+
+	for _, opt := range options {
+		opt(&config)
+	}
+
+	return config, err
+}
+
+func loadEnvFile(filename string) error {
 	err := godotenv.Load(filename)
 	if err == nil || errors.Is(err, os.ErrNotExist) {
 		return nil
@@ -34,48 +179,35 @@ func loadEnv(filename string) error {
 	return fmt.Errorf("error loading file %s: %w", filename, err)
 }
 
-func NewConfig() (Config, error) {
+func LoadEnv(environment ...string) error {
 	var err error
 	var errs error
 
-	environment := getEnv("ENVIRONMENT", "development")
-	if environment != "" {
-		file := ".env" + environment + ".local"
-		err = loadEnv(file)
+	filenames := []string{
+		".env.local",
+		".env",
+	}
+
+	env := getEnv("ENVIRONMENT", DefaultConfig().Environment)
+	if len(environment) > 0 {
+		env = environment[0]
+	}
+	if env != "" {
+		file := ".env" + env + ".local"
+		filenames = append([]string{file}, filenames...)
+	}
+
+	for _, filename := range filenames {
+		err = loadEnvFile(filename)
 		if err != nil {
 			errs = errors.Join(
 				errs,
-				fmt.Errorf("error loading %s: %w", file, err),
+				fmt.Errorf("error loading %s: %w", filename, err),
 			)
 		}
 	}
 
-	err = loadEnv(".env.local")
-	if err != nil {
-		errs = errors.Join(
-			errs,
-			fmt.Errorf("error loading .env.local: %w", err),
-		)
-	}
-
-	err = loadEnv(".env")
-	if err != nil {
-		errs = errors.Join(
-			errs,
-			fmt.Errorf("error loading .env: %w", err),
-		)
-	}
-
-	config := Config{}
-	err = env.Parse(&config)
-	if err != nil {
-		errs = errors.Join(
-			errs,
-			fmt.Errorf("error parsing env: %w", err),
-		)
-	}
-
-	return config, errs
+	return errs
 }
 
 func getEnv(key, fallback string) string {
@@ -89,6 +221,6 @@ func getEnv(key, fallback string) string {
 	return fallback
 }
 
-func (c Config) IsProd() bool {
+func (c *Config) IsProd() bool {
 	return c.Environment == "production"
 }

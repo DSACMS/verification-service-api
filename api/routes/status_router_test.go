@@ -18,6 +18,7 @@ func TestStatusEndpoint(t *testing.T) {
 	if err != nil {
 		t.Fatalf("failed to perform request: %v", err)
 	}
+	defer resp.Body.Close()
 
 	if resp.StatusCode != fiber.StatusOK {
 		t.Fatalf("expected status %d, got %d", fiber.StatusOK, resp.StatusCode)
