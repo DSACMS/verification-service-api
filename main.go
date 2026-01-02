@@ -2,26 +2,21 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
+	"log/slog"
 	"os"
 	"os/signal"
-	"runtime/debug"
 	"syscall"
 	"time"
 
-	"github.com/DSACMS/verification-service-api/internal/logger"
-	"github.com/DSACMS/verification-service-api/internal/middleware"
-	"github.com/DSACMS/verification-service-api/internal/otel"
-	"github.com/DSACMS/verification-service-api/internal/router"
+	"github.com/DSACMS/verification-service-api/api"
+	"github.com/DSACMS/verification-service-api/pkg/core"
 
-	"github.com/gofiber/contrib/otelfiber/v2"
 	"github.com/gofiber/fiber/v2"
-	"github.com/gofiber/fiber/v2/middleware/cors"
-	"github.com/gofiber/fiber/v2/middleware/recover"
-
-	"go.opentelemetry.io/otel/codes"
-	"go.opentelemetry.io/otel/trace"
 )
+
+var ErrRunFailed = errors.New("application failed to run")
 
 func main() {
 	if err := run(); err != nil {
@@ -31,96 +26,69 @@ func main() {
 }
 
 func run() error {
+	err := core.LoadEnv()
+	if err != nil {
+		slog.Default().Error(
+			"Failed to load environment",
+			"err",
+			err,
+		)
+		return ErrRunFailed
+	}
+
+	cfg, err := core.NewConfigFromEnv()
+	if err != nil {
+		slog.Default().Error(
+			"Failed to get configuration",
+			"err",
+			err,
+		)
+		return ErrRunFailed
+	}
+
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	shutdownOtel, err := otel.InitOtel(ctx)
+	initLogger := core.NewLogger(&cfg)
+	otel, err := core.NewOtelService(ctx, &cfg)
 	if err != nil {
-		logger.Logger.ErrorContext(ctx, "Otel error", "err", err)
-		return err
+		initLogger.ErrorContext(
+			ctx,
+			"Otel error",
+			"err",
+			err,
+		)
+		return ErrRunFailed
 	}
+	defer otel.Shutdown(ctx, initLogger)
 
-	if shutdownOtel != nil {
-		defer func() {
-			shutdownCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-			defer cancel()
-
-			if shutdownErr := shutdownOtel(shutdownCtx); shutdownErr != nil {
-				logger.Logger.ErrorContext(shutdownCtx, "Error shutting down otel", "err", shutdownErr)
-			}
-		}()
-	}
-
-	app, err := buildApp(AppOptions{SkipAuth: false})
+	logger := core.NewLoggerWithOtel(&cfg, otel)
+	app, err := api.New(&api.Config{
+		Config: cfg,
+		Logger: logger,
+		Otel:   otel,
+	})
 	if err != nil {
-		logger.Logger.ErrorContext(ctx, "Error building app", "err", err)
-		return err
+		logger.ErrorContext(
+			ctx,
+			"Error building app",
+			"err",
+			err,
+		)
+		return ErrRunFailed
 	}
 
 	if err := runServer(ctx, app, ":8000"); err != nil {
-		logger.Logger.ErrorContext(ctx, "Server error", "err", err)
-		return err
+		logger.ErrorContext(
+			ctx,
+			"Server error",
+			"err",
+			err,
+		)
+		return ErrRunFailed
 	}
 
 	return nil
-}
-
-type AppOptions struct {
-	SkipAuth bool
-}
-
-func buildApp(opts AppOptions) (*fiber.App, error) {
-	app := fiber.New(fiber.Config{
-		ErrorHandler: func(c *fiber.Ctx, err error) error {
-			span := trace.SpanFromContext(c.Context())
-			span.RecordError(err)
-			span.SetStatus(codes.Error, "Internal Service Error")
-
-			logger.Logger.Error("Internal Service Error", "err", err)
-
-			return c.Status(fiber.StatusInternalServerError).
-				SendString(fiber.ErrInternalServerError.Message)
-		},
-	})
-
-	app.Use(logger.Middleware)
-
-	app.Use(recover.New(recover.Config{
-		EnableStackTrace: true,
-		StackTraceHandler: func(c *fiber.Ctx, e any) {
-			logger.Logger.ErrorContext(
-				c.Context(),
-				"panic!",
-				"err", e,
-				"stack", string(debug.Stack()),
-			)
-		},
-	}))
-
-	app.Use(cors.New(cors.Config{
-		AllowOrigins: "*",
-		AllowHeaders: "*",
-		AllowMethods: "*",
-	}))
-
-	app.Use(otelfiber.Middleware())
-
-	if !opts.SkipAuth {
-		verifier, err := middleware.NewCognitoVerifier(middleware.CognitoConfig{
-			Region:     os.Getenv("COGNITO_REGION"),
-			UserPoolID: os.Getenv("COGNITO_USER_POOL_ID"),
-			ClientID:   os.Getenv("COGNITO_APP_CLIENT_ID"),
-		})
-		if err != nil {
-			return nil, err
-		}
-		app.Use(verifier.FiberMiddleware())
-	}
-
-	// Routes
-	router.SetupRoutes(app)
-
-	return app, nil
 }
 
 func runServer(ctx context.Context, app *fiber.App, addr string) error {

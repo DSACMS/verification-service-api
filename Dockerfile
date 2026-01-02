@@ -8,10 +8,16 @@ RUN go mod download
 COPY . .
 
 ENV CGO_ENABLED=0 GOOS=linux GOARCH=amd64
-RUN go build -ldflags="-s -w" -o apiserver .
+RUN go build -ldflags="-s -w" -a -o apiserver .
 
-FROM scratch
+FROM alpine:3.23
 
-COPY --from=builder ["/build/apiserver", "/"]
+COPY --chmod=0755 --from=builder ["/build/apiserver", "/"]
 
-ENTRYPOINT ["/apiserver"]
+RUN apk add --no-cache dumb-init ca-certificates
+
+EXPOSE 8000
+
+ENTRYPOINT ["/usr/bin/dumb-init", "--"]
+
+CMD ["/apiserver"]

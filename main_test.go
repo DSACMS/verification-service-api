@@ -1,29 +1,60 @@
 package main
 
 import (
+	"context"
 	"io"
 	"net/http"
 	"strings"
 	"testing"
+
+	"github.com/DSACMS/verification-service-api/api"
+	"github.com/DSACMS/verification-service-api/pkg/core"
+
+	"github.com/gofiber/fiber/v2"
 )
 
 type routeTest struct {
 	description  string
 	route        string
-	expectedCode int
 	expectedBody string
+	expectedCode int
+}
+
+func buildApp() (*fiber.App, error) {
+	ctx := context.TODO()
+	cfg, err := core.NewConfigFromEnv(
+		core.WithEnvironment("test"),
+		core.WithSkipAuth(),
+		core.WithOtelDisable(),
+	)
+	if err != nil {
+		return nil, err
+	}
+
+	otel, err := core.NewOtelService(ctx, &cfg)
+	if err != nil {
+		return nil, err
+	}
+
+	logger := core.NewLoggerWithOtel(&cfg, otel)
+
+	return api.New((&api.Config{
+		Config: cfg,
+		Logger: logger,
+		Otel:   otel,
+	}))
 }
 
 func TestRoutes(t *testing.T) {
-	app, err := buildApp(AppOptions{SkipAuth: true})
+	app, err := buildApp()
 	if err != nil {
 		t.Fatalf("buildApp error: %v", err)
 	}
 
 	tests := []routeTest{
 		{
-			description:  "index route",
-			route:        "/",
+			description:  "status route",
+			route:        "/status",
 			expectedCode: http.StatusOK,
 			expectedBody: "OK",
 		},
@@ -37,7 +68,7 @@ func TestRoutes(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.description, func(t *testing.T) {
-			req, err := http.NewRequest(http.MethodGet, tt.route, nil)
+			req, err := http.NewRequest(http.MethodGet, tt.route, http.NoBody)
 			if err != nil {
 				t.Fatalf("http.NewRequest error: %v", err)
 			}

@@ -1,11 +1,11 @@
-package config
+package core
 
 import (
 	"testing"
 )
 
 func TestLoadEnv(t *testing.T) {
-	err := loadEnv(".env.example")
+	err := loadEnvFile(".env.example")
 	if err != nil {
 		t.Fatalf(`loadEnv(".env.example" returned error: %v)`, err)
 	}

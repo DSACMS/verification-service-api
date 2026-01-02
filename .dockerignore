@@ -1,0 +1,10 @@
+*_test.go
+*.md
+*.yaml
+*.yml
+.air.toml
+.cspell.json
+.repolinter.json
+.editorconfig
+.env*
+.git*

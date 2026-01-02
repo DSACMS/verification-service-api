@@ -129,7 +129,7 @@ func (v *CognitoVerifier) FiberMiddleware() fiber.Handler {
 		}
 
 		// put useful info on context
-		// save to c.locals to store termporary variables in the request's scope. They are only available to routes matching the request and go away when the request is handled
+		// save to c.locals to store temporary variables in the request's scope. They are only available to routes matching the request and go away when the request is handled
 		if sub, ok := tok.Get("sub"); ok {
 			c.Locals("sub", sub)
 		}
