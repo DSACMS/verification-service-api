@@ -1,11 +1,10 @@
 services:
   api:
-    image: cosmtrek/air
-    working_dir: /project-package
+    build: .
+    environment:
+      OTEL_EXPORTER_OTLP_ENDPOINT: otel-collector:4317
     ports:
       - "8000:8000"
-    volumes:
-      - ./:/project-package/
     depends_on:
       - otel-collector
 
