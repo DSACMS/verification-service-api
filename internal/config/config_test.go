@@ -2,13 +2,18 @@ package config
 
 import (
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestLoadEnv(t *testing.T) {
 	err := loadEnv(".env.example")
-	if err != nil {
-		t.Fatalf(`loadEnv(".env.example" returned error: %v)`, err)
-	}
+	// if err != nil {
+	// 	t.Fatalf(`loadEnv(".env.example" returned error: %v)`, err)
+	// }
+
+	require.NoErrorf(t, err, `loadEnv(".env.example" returned error: %v)`, err)
 }
 
 func TestGetEnv_KeyValue(t *testing.T) {
@@ -18,9 +23,10 @@ func TestGetEnv_KeyValue(t *testing.T) {
 
 	expected := "abc"
 
-	if result != expected {
-		t.Errorf(`getEnv("xyz)", "development") = %q; expected: %q`, result, expected)
-	}
+	// if result != expected {
+	// 	t.Errorf(`getEnv("xyz", "development") = %q; expected: %q`, result, expected)
+	// }
+	assert.Equalf(t, expected, result, `getEnv("xyz", "development") = %q; expected: %q`, result, expected)
 }
 
 func TestGetEnv_FallbackValue(t *testing.T) {
@@ -31,7 +37,5 @@ func TestGetEnv_FallbackValue(t *testing.T) {
 
 	expected := "development"
 
-	if result != expected {
-		t.Errorf(`getEnv("xyz", "development") = %q; expected: %q`, result, expected)
-	}
+	assert.Equalf(t, expected, result, `getEnv("xyz", "development") = %q; expected: %q`, result, expected)
 }

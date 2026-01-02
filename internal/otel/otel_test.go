@@ -4,6 +4,8 @@ import (
 	"context"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/sdk/resource"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
@@ -11,28 +13,23 @@ import (
 )
 
 func TestOtel_EmitsSpan(t *testing.T) {
-    ctx := context.Background()
+	ctx := context.Background()
 
-    rec := tracetest.NewSpanRecorder()
+	rec := tracetest.NewSpanRecorder()
 
-    tp := sdktrace.NewTracerProvider(
-        sdktrace.WithResource(resource.Empty()),
-        sdktrace.WithSpanProcessor(rec),
-    )
-    t.Cleanup(func() { _ = tp.Shutdown(ctx) })
+	tp := sdktrace.NewTracerProvider(
+		sdktrace.WithResource(resource.Empty()),
+		sdktrace.WithSpanProcessor(rec),
+	)
+	t.Cleanup(func() { _ = tp.Shutdown(ctx) })
 
-    otel.SetTracerProvider(tp)
+	otel.SetTracerProvider(tp)
 
-    tr := otel.Tracer("test")
-    _, span := tr.Start(ctx, "hello")
-    span.End()
+	tr := otel.Tracer("test")
+	_, span := tr.Start(ctx, "hello")
+	span.End()
 
-    ended := rec.Ended()
-    if len(ended) != 1 {
-        t.Fatalf("expected 1 span, got %d", len(ended))
-    }
-    if ended[0].Name() != "hello" {
-        t.Fatalf("expected span name 'hello', got %q", ended[0].Name())
-    }
+	ended := rec.Ended()
+	require.Len(t, ended, 1, "expected exactly 1 ended span")
+	assert.Equal(t, "hello", ended[0].Name(), "unexpected span name")
 }
-
