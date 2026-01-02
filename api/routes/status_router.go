@@ -1,7 +1,7 @@
 package routes
 
 import (
-	"verification-service-api/api/handlers"
+	"github.com/DSACMS/verification-service-api/api/handlers"
 
 	"github.com/gofiber/fiber/v2"
 )

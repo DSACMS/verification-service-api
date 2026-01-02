@@ -1,9 +1,8 @@
-module verification-service-api
+module github.com/DSACMS/verification-service-api
 
 go 1.25
 
 require (
-	github.com/caarlos0/env/v11 v11.3.1
 	github.com/gofiber/contrib/otelfiber/v2 v2.2.3
 	github.com/gofiber/fiber/v2 v2.52.10
 	github.com/joho/godotenv v1.5.1
