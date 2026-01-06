@@ -6,6 +6,8 @@ import (
 	"testing"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestStatusEndpoint(t *testing.T) {
@@ -14,13 +16,12 @@ func TestStatusEndpoint(t *testing.T) {
 
 	req := httptest.NewRequest(http.MethodGet, "/status", http.NoBody)
 
-	resp, err := app.Test(req)
-	if err != nil {
-		t.Fatalf("failed to perform request: %v", err)
-	}
-	defer resp.Body.Close()
+	expected := fiber.StatusOK
 
-	if resp.StatusCode != fiber.StatusOK {
-		t.Fatalf("expected status %d, got %d", fiber.StatusOK, resp.StatusCode)
-	}
+	result, err := app.Test(req)
+
+	require.NoErrorf(t, err, "app.Test(req) returned error: %v", err)
+	defer result.Body.Close()
+
+	assert.Equalf(t, expected, result, "app.Test(req) returned %v; expected: %v", result, expected)
 }
