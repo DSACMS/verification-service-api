@@ -180,9 +180,6 @@ func loadEnvFile(filename string) error {
 }
 
 func LoadEnv(environment ...string) error {
-	var err error
-	var errs error
-
 	filenames := []string{
 		".env.local",
 		".env",
@@ -192,13 +189,16 @@ func LoadEnv(environment ...string) error {
 	if len(environment) > 0 {
 		env = environment[0]
 	}
+	
 	if env != "" {
-		file := ".env" + env + ".local"
+		file := ".env." + env + ".local"
 		filenames = append([]string{file}, filenames...)
 	}
 
+	var errs error
+
 	for _, filename := range filenames {
-		err = loadEnvFile(filename)
+		err := loadEnvFile(filename)
 		if err != nil {
 			errs = errors.Join(
 				errs,
