@@ -1,8 +1,13 @@
 package circuitbreaker
 
 import (
+	"context"
+	"errors"
+
 	"github.com/redis/go-redis/v9"
 )
+
+var ErrCircuitOpen = errors.New("circuit breaker is open")
 
 type RedisBreaker struct {
 	// Redis client used to read and update the circuit state.
@@ -62,4 +67,43 @@ func NewRedisBreaker(rdb *redis.Client, name string, opts Options) *RedisBreaker
 	return b
 }
 
-// func (b *RedisBreaker) keys() (openKey, failsKey, halfKey)
+func (b *RedisBreaker) keys() (openKey, failsKey, halfKey string) {
+	prefix := "cb:" + b.name + ":"
+	return prefix + "open", prefix + "fails", prefix + "half"
+}
+
+// Allow returns nil if the call may proceed, or ErrCircuitOpen if it must be blocked.
+func (b *RedisBreaker) Allow(ctx context.Context) error {
+	openKey, _, _ := b.keys()
+
+	exists, err := b.rdb.Exists(ctx, openKey).Result()
+	if err != nil {
+		// If Redis is down:
+		// fail-open (allow traffic) to keep service alive
+		return nil
+	}
+	if exists == 1 {
+		return ErrCircuitOpen
+	}
+
+	return nil
+}
+
+func (b *RedisBreaker) OnSuccess(ctx context.Context) {
+	_, failsKey, halfKey := b.keys()
+	pipe := b.rdb.Pipeline()
+	pipe.Del(ctx, failsKey)
+	pipe.Del(ctx, halfKey)
+	_, _ = pipe.Exec(ctx)
+}
+
+func (b *RedisBreaker) OnFailure(ctx context.Context) {
+	openKey, failsKey, halfKey := b.keys()
+
+	_, _ = b.failScript.Run(ctx, b.rdb,
+		[]string{failsKey, openKey, halfKey},
+		b.opts.FailWindow.Milliseconds(),
+		b.opts.FailureThreshold,
+		b.opts.OpenCoolDown.Milliseconds(),
+	).Result()
+}
