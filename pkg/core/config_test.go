@@ -2,13 +2,21 @@ package core
 
 import (
 	"testing"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
-func TestLoadEnv(t *testing.T) {
+func TestLoadEnvFile(t *testing.T) {
 	err := loadEnvFile(".env.example")
-	if err != nil {
-		t.Fatalf(`loadEnv(".env.example" returned error: %v)`, err)
-	}
+
+	require.NoErrorf(t, err, `There was an error loading ".env.example": %v`, err)
+}
+
+func TestLoadEnv(t *testing.T) {
+	err := LoadEnv()
+
+	require.NotNilf(t, err, "LoadingEnv should not return an error. Got %v", err)
 }
 
 func TestGetEnv_KeyValue(t *testing.T) {
@@ -18,20 +26,15 @@ func TestGetEnv_KeyValue(t *testing.T) {
 
 	expected := "abc"
 
-	if result != expected {
-		t.Errorf(`getEnv("xyz)", "development") = %q; expected: %q`, result, expected)
-	}
+	assert.Equalf(t, expected, result, `getEnv("xyz", "development) = %q; expected: %q`, result, expected)
 }
 
 func TestGetEnv_FallbackValue(t *testing.T) {
-	// set test env var to empty to trigger fallback
 	t.Setenv("xyz", "")
 
 	result := getEnv("xyz", "development")
 
 	expected := "development"
 
-	if result != expected {
-		t.Errorf(`getEnv("xyz", "development") = %q; expected: %q`, result, expected)
-	}
+	assert.Equalf(t, expected, result, `getEnv("xyz", "development") = %q; expected: %q`, result, expected)
 }
