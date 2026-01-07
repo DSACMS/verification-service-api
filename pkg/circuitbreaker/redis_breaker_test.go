@@ -88,7 +88,7 @@ func TestNewRedisBreaker_Allow(t *testing.T) {
 }
 
 // func TestNewRedisBreaker_OnSuccess(t *testing.T) {
-// 	rdb := newTestRedisClient(t)
+// 	rdb := newTestRedisClient(t)m, 
 // 	testBreakerOpts := newTestBreakerOptions(t)
 
 // 	breaker := NewRedisBreaker(rdb, "redisBreaker", testBreakerOpts)
@@ -102,6 +102,7 @@ func TestNewRedisBreaker_Allow(t *testing.T) {
 	opts.FailureThreshold = 2
 
 	ctx := context.Background()
+
 	breaker := NewRedisBreaker(rdb, "redisBreaker", opts)
 
 	openKey, failsKey, halfKey := breaker.keys()
