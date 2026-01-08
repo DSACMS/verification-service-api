@@ -2,6 +2,8 @@ package circuitbreaker
 
 import (
 	"context"
+	"strconv"
+	"time"
 
 	"github.com/redis/go-redis/v9"
 )
@@ -19,46 +21,55 @@ func NewRedisBreaker(rdb *redis.Client, name string, opts Options) *RedisBreaker
 	if opts.FailureThreshold <= 0 {
 		opts = DefaultOptions()
 	}
-
-	b := &RedisBreaker{
-		rdb:  rdb,
-		name: name,
-		opts: opts,
+	if opts.Prefix == "" {
+		opts.Prefix = "cb:"
 	}
-
-	return b
+	return &RedisBreaker{rdb: rdb, name: name, opts: opts}
 }
 
-func (b *RedisBreaker) keys() (openKey, failsKey string) {
-	prefix := b.opts.Prefix + b.name + ":"
-	return prefix + "open", prefix + "fails"
+func (b *RedisBreaker) keys() (stateKey, failsKey string) {
+	base := b.opts.Prefix + b.name
+	return base, base + ":fails"
 }
 
-// Allow returns nil if the call may proceed, or ErrCircuitOpen if it must be blocked.
 func (b *RedisBreaker) Allow(ctx context.Context) error {
-	openKey, _ := b.keys()
+	stateKey, _ := b.keys()
 
-	exists, err := b.rdb.Exists(ctx, openKey).Result()
-	if err != nil {
-		// If Redis is down:
-		// fail-open (allow traffic) to keep service alive
+	val, err := b.rdb.Get(ctx, stateKey).Result()
+	if err == redis.Nil {
 		return nil
 	}
-	if exists == 1 {
+	if err != nil {
+		if b.opts.FailOpen {
+			return nil
+		}
 		return ErrCircuitOpen
 	}
 
-	return nil
+	timeToHalfOpenMs, convErr := strconv.ParseInt(val, 10, 64)
+	if convErr != nil {
+		if b.opts.FailOpen {
+			return nil
+		}
+		return ErrCircuitOpen
+	}
+
+	nowMs := time.Now().UnixMilli()
+
+	if nowMs >= timeToHalfOpenMs {
+		return nil
+	}
+
+	return ErrCircuitOpen
 }
 
 func (b *RedisBreaker) OnSuccess(ctx context.Context) {
-	_, failsKey := b.keys()
-
-	_ = b.rdb.Del(ctx, failsKey).Err()
+	stateKey, failsKey := b.keys()
+	_ = b.rdb.Del(ctx, stateKey, failsKey).Err()
 }
 
 func (b *RedisBreaker) OnFailure(ctx context.Context) {
-	openKey, failsKey := b.keys()
+	stateKey, failsKey := b.keys()
 
 	fails, err := b.rdb.Incr(ctx, failsKey).Result()
 	if err != nil {
@@ -71,8 +82,15 @@ func (b *RedisBreaker) OnFailure(ctx context.Context) {
 	}
 
 	if int(fails) >= b.opts.FailureThreshold {
-		// open breaker + reset counter
-		_ = b.rdb.Set(ctx, openKey, "1", b.opts.OpenCoolDown).Err()
+		timeToHalfOpenMs := time.Now().Add(b.opts.OpenCoolDown).UnixMilli()
+
+		stateTTL := b.opts.OpenCoolDown + b.opts.HalfOpenLease
+		if stateTTL <= 0 {
+			stateTTL = b.opts.OpenCoolDown
+		}
+
+		_ = b.rdb.Set(ctx, stateKey, strconv.FormatInt(timeToHalfOpenMs, 10), stateTTL).Err()
+
 		_ = b.rdb.Del(ctx, failsKey).Err()
 	}
 }
