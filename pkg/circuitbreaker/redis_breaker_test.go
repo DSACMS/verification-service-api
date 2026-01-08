@@ -10,19 +10,31 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+const (
+	redisClientAddr   = "localhost:6379"
+	redisPassword     = ""
+	redisDB           = 0
+	redisDialTimeout  = 2 * time.Second
+	redisReadTimeout  = 2 * time.Second
+	redisWriteTimeout = 2 * time.Second
+	redisPoolTimeout  = 2 * time.Second
+	redisPoolSize     = 20
+	redisMinIdleConns = 2
+)
+
 func newTestRedisClient(t *testing.T) *redis.Client {
 	t.Helper()
 
 	return redis.NewClient(&redis.Options{
-		Addr:         "localhost:6379",
-		Password:     "",
-		DB:           0,
-		DialTimeout:  2 * time.Second,
-		ReadTimeout:  2 * time.Second,
-		WriteTimeout: 2 * time.Second,
-		PoolTimeout:  2 * time.Second,
-		PoolSize:     20,
-		MinIdleConns: 2,
+		Addr:         redisClientAddr,
+		Password:     redisPassword,
+		DB:           redisDB,
+		DialTimeout:  redisDialTimeout,
+		ReadTimeout:  redisReadTimeout,
+		WriteTimeout: redisWriteTimeout,
+		PoolTimeout:  redisPoolTimeout,
+		PoolSize:     redisPoolSize,
+		MinIdleConns: redisMinIdleConns,
 	})
 }
 
@@ -43,7 +55,7 @@ func TestNewRedisBreaker(t *testing.T) {
 	rdb := newTestRedisClient(t)
 	testBreakerOpts := newTestBreakerOptions(t)
 
-	result := NewRedisBreaker(rdb, "redisBreaker", testBreakerOpts)
+	result := NewRedisBreaker(rdb, "redisBreaker"+t.Name(), testBreakerOpts)
 
 	require.NotNil(t, result, "NewRedisBreaker should not return nil")
 
@@ -51,34 +63,29 @@ func TestNewRedisBreaker(t *testing.T) {
 
 	assert.Equal(t, "redisBreaker", result.name)
 	assert.Equal(t, testBreakerOpts, result.opts)
-
-	require.NotNil(t, result.failScript, "Expected failScript to be initialized")
 }
 
 func TestNewRedisBreaker_keys(t *testing.T) {
 	rdb := newTestRedisClient(t)
 	testBreakerOpts := newTestBreakerOptions(t)
 
-	breaker := NewRedisBreaker(rdb, "redisBreaker", testBreakerOpts)
+	breaker := NewRedisBreaker(rdb, "redisBreaker"+t.Name(), testBreakerOpts)
 
-	resultOpenKey, resultFailsKey, resultHalfKey := breaker.keys()
+	resultOpenKey, resultFailsKey := breaker.keys()
 
 	expectedOpenKey := "cb:redisBreaker:open"
 	expectedFailsKey := "cb:redisBreaker:fails"
-	expectedHalfKey := "cb:redisBreaker:half"
 
 	assert.Equalf(t, expectedOpenKey, resultOpenKey, "Got: %q; Expected: %q", expectedOpenKey, resultOpenKey)
 
 	assert.Equalf(t, expectedFailsKey, resultFailsKey, "Got: %q; Expected: %q", expectedFailsKey, resultFailsKey)
-
-	assert.Equalf(t, expectedHalfKey, resultHalfKey, "Got: %q; Expected: %q", expectedHalfKey, resultHalfKey)
 }
 
 func TestNewRedisBreaker_Allow(t *testing.T) {
 	rdb := newTestRedisClient(t)
 	testBreakerOpts := newTestBreakerOptions(t)
 
-	breaker := NewRedisBreaker(rdb, "redisBreaker", testBreakerOpts)
+	breaker := NewRedisBreaker(rdb, "redisBreaker"+t.Name(), testBreakerOpts)
 
 	ctx := context.Background()
 
@@ -87,15 +94,7 @@ func TestNewRedisBreaker_Allow(t *testing.T) {
 	require.NoErrorf(t, err, "The Allow method returned an error: %v", err)
 }
 
-// func TestNewRedisBreaker_OnSuccess(t *testing.T) {
-// 	rdb := newTestRedisClient(t)m, 
-// 	testBreakerOpts := newTestBreakerOptions(t)
-
-// 	breaker := NewRedisBreaker(rdb, "redisBreaker", testBreakerOpts)
-
-// }
-
- func TestRedisBreaker_OnFailure_TransitionsToOpen(t *testing.T) {
+func TestRedisBreaker_OnFailure_TransitionsToOpen(t *testing.T) {
 	rdb := newTestRedisClient(t)
 
 	opts := newTestBreakerOptions(t)
@@ -103,9 +102,9 @@ func TestNewRedisBreaker_Allow(t *testing.T) {
 
 	ctx := context.Background()
 
-	breaker := NewRedisBreaker(rdb, "redisBreaker", opts)
+	breaker := NewRedisBreaker(rdb, "redisBreaker"+t.Name(), opts)
 
-	openKey, failsKey, halfKey := breaker.keys()
+	openKey, failsKey := breaker.keys()
 
 	breaker.OnFailure(ctx)
 
@@ -114,10 +113,6 @@ func TestNewRedisBreaker_Allow(t *testing.T) {
 	require.Equal(t, int64(1), fails)
 
 	exists, err := rdb.Exists(ctx, openKey).Result()
-	require.NoError(t, err)
-	require.Equal(t, int64(0), exists)
-
-	exists, err = rdb.Exists(ctx, halfKey).Result()
 	require.NoError(t, err)
 	require.Equal(t, int64(0), exists)
 
@@ -131,11 +126,6 @@ func TestNewRedisBreaker_Allow(t *testing.T) {
 	require.NoError(t, err)
 	require.Equal(t, int64(0), exists)
 
-	exists, err = rdb.Exists(ctx, halfKey).Result()
-	require.NoError(t, err)
-	require.Equal(t, int64(0), exists)
-
 	err = breaker.Allow(ctx)
 	require.ErrorIs(t, err, ErrCircuitOpen)
 }
-

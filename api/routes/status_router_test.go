@@ -23,5 +23,12 @@ func TestStatusEndpoint(t *testing.T) {
 	require.NoErrorf(t, err, "app.Test(req) returned error: %v", err)
 	defer result.Body.Close()
 
-	assert.Equalf(t, expected, result, "app.Test(req) returned %v; expected: %v", result, expected)
+	assert.Equalf(
+		t,
+		expected,
+		result.StatusCode,
+		"app.Test(req) returned status %v; expected: %v",
+		result.StatusCode,
+		expected,
+	)
 }

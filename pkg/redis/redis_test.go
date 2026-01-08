@@ -11,8 +11,6 @@ import (
 )
 
 func TestNewClient_Ping_Set_Get(t *testing.T) {
-	t.Setenv("REDIS_ADDR", "localhost:6379")
-
 	addr := os.Getenv("REDIS_ADDR")
 
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)

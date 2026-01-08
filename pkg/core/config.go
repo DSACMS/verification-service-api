@@ -133,19 +133,19 @@ func setFromEnv(loc any, key string) error {
 
 	switch v := loc.(type) {
 	case *string:
-		(*v) = strValue
+		*v = strValue
 	case *bool:
 		val, err := strconv.ParseBool(strValue)
 		if err != nil {
 			return fmt.Errorf("failed to parse %s as a bool: %w", strValue, err)
 		}
-		(*v) = val
+		*v = val
 	case *int:
 		val, err := strconv.ParseInt(strValue, 10, strconv.IntSize)
 		if err != nil {
 			return fmt.Errorf("failed to parse %s as an int: %w", strValue, err)
 		}
-		(*v) = int(val)
+		*v = int(val)
 	}
 	return nil
 }
@@ -189,7 +189,7 @@ func LoadEnv(environment ...string) error {
 	if len(environment) > 0 {
 		env = environment[0]
 	}
-	
+
 	if env != "" {
 		file := ".env." + env + ".local"
 		filenames = append([]string{file}, filenames...)

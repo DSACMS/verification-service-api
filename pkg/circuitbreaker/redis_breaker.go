@@ -2,12 +2,9 @@ package circuitbreaker
 
 import (
 	"context"
-	"errors"
 
 	"github.com/redis/go-redis/v9"
 )
-
-var ErrCircuitOpen = errors.New("circuit breaker is open")
 
 type RedisBreaker struct {
 	// Redis client used to read and update the circuit state.
@@ -16,40 +13,7 @@ type RedisBreaker struct {
 	name string
 	// Defines the behaviour and timing characteristics of the breaker.
 	opts Options
-	//  Lua script to record failures atomically.
-	failScript *redis.Script
 }
-
-var luaScript string = `
-	local failsKey = KEYS[1]
-	local openKey  = KEYS[2]
-	local halfKey  = KEYS[3]
-
-	local failWindowMs   = tonumber(ARGV[1])
-	local threshold      = tonumber(ARGV[2])
-	local openCooldownMs = tonumber(ARGV[3])
-
-	-- increment failures
-	local fails = redis.call("INCR", failsKey)
-
-	-- ensure rolling window TTL exists
-	local ttl = redis.call("PTTL", failsKey)
-	if ttl < 0 then
-	redis.call("PEXPIRE", failsKey, failWindowMs)
-	end
-
-	-- if threshold reached, open breaker
-	if fails >= threshold then
-	redis.call("SET", openKey, "1", "PX", openCooldownMs)
-	redis.call("DEL", failsKey)
-	redis.call("DEL", halfKey)
-	return {fails, "opened"}
-	end
-
-	-- release probe lock after a failed attempt (so a later attempt can probe again)
-	redis.call("DEL", halfKey)
-	return {fails, "closed"}
-	`
 
 func NewRedisBreaker(rdb *redis.Client, name string, opts Options) *RedisBreaker {
 	if opts.FailureThreshold <= 0 {
@@ -62,19 +26,17 @@ func NewRedisBreaker(rdb *redis.Client, name string, opts Options) *RedisBreaker
 		opts: opts,
 	}
 
-	b.failScript = redis.NewScript(luaScript)
-
 	return b
 }
 
-func (b *RedisBreaker) keys() (openKey, failsKey, halfKey string) {
-	prefix := "cb:" + b.name + ":"
-	return prefix + "open", prefix + "fails", prefix + "half"
+func (b *RedisBreaker) keys() (openKey, failsKey string) {
+	prefix := b.opts.Prefix + b.name + ":"
+	return prefix + "open", prefix + "fails"
 }
 
 // Allow returns nil if the call may proceed, or ErrCircuitOpen if it must be blocked.
 func (b *RedisBreaker) Allow(ctx context.Context) error {
-	openKey, _, _ := b.keys()
+	openKey, _ := b.keys()
 
 	exists, err := b.rdb.Exists(ctx, openKey).Result()
 	if err != nil {
@@ -90,20 +52,27 @@ func (b *RedisBreaker) Allow(ctx context.Context) error {
 }
 
 func (b *RedisBreaker) OnSuccess(ctx context.Context) {
-	_, failsKey, halfKey := b.keys()
-	pipe := b.rdb.Pipeline()
-	pipe.Del(ctx, failsKey)
-	pipe.Del(ctx, halfKey)
-	_, _ = pipe.Exec(ctx)
+	_, failsKey := b.keys()
+
+	_ = b.rdb.Del(ctx, failsKey).Err()
 }
 
 func (b *RedisBreaker) OnFailure(ctx context.Context) {
-	openKey, failsKey, halfKey := b.keys()
+	openKey, failsKey := b.keys()
 
-	_, _ = b.failScript.Run(ctx, b.rdb,
-		[]string{failsKey, openKey, halfKey},
-		b.opts.FailWindow.Milliseconds(),
-		b.opts.FailureThreshold,
-		b.opts.OpenCoolDown.Milliseconds(),
-	).Result()
+	fails, err := b.rdb.Incr(ctx, failsKey).Result()
+	if err != nil {
+		return
+	}
+
+	ttl, err := b.rdb.PTTL(ctx, failsKey).Result()
+	if err == nil && ttl < 0 {
+		_ = b.rdb.PExpire(ctx, failsKey, b.opts.FailWindow).Err()
+	}
+
+	if int(fails) >= b.opts.FailureThreshold {
+		// open breaker + reset counter
+		_ = b.rdb.Set(ctx, openKey, "1", b.opts.OpenCoolDown).Err()
+		_ = b.rdb.Del(ctx, failsKey).Err()
+	}
 }
