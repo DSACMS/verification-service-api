@@ -8,6 +8,7 @@ import (
 )
 
 const (
+	defaultAddr         = "localhost:6379"
 	defaultPassword     = ""
 	defaultDB           = 0
 	defaultDialTimeout  = 2 * time.Second
@@ -28,7 +29,8 @@ type Config struct {
 
 func NewClient(c Config) *redis.Client {
 	opts := &redis.Options{
-		Addr: c.Addr,
+		// Addr: c.Addr,
+		Addr: defaultAddr,
 		// Password:     c.Password,
 		Password: defaultPassword, // No password
 		// DB:           c.DB,

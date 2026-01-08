@@ -6,7 +6,7 @@ import (
 	"time"
 )
 
-var ErrOpen = errors.New("circuit breaker is open")
+var ErrCircuitOpen = errors.New("circuit breaker is open")
 
 type Breaker interface {
 	Allow(ctx context.Context) error

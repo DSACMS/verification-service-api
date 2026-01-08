@@ -7,8 +7,8 @@ require (
 	github.com/gofiber/fiber/v2 v2.52.10
 	github.com/joho/godotenv v1.5.1
 	github.com/lestrrat-go/jwx/v2 v2.1.6
-	github.com/redis/go-redis/v9 v9.0.0-rc.4
-	github.com/samber/slog-fiber v1.19.0
+	github.com/redis/go-redis/v9 v9.17.2
+	github.com/samber/slog-fiber v1.20.1
 	github.com/samber/slog-multi v1.7.0
 	github.com/stretchr/testify v1.11.1
 	go.opentelemetry.io/contrib/bridges/otelslog v0.14.0
