@@ -25,12 +25,37 @@ type CognitoConfig struct {
 	AppClientID string
 }
 
+type RedisConfig struct {
+	Addr     string
+	Password string
+	DB       int
+}
+
 type Config struct {
 	Cognito     CognitoConfig
 	Environment string
 	Otel        OtelConfig
 	Port        int
 	SkipAuth    bool
+	Redis       RedisConfig
+}
+
+func WithRedisAddr(addr string) func(*Config) {
+	return func(c *Config) {
+		c.Redis.Addr = addr
+	}
+}
+
+func WithRedisPassword(pw string) func(*Config) {
+	return func(c *Config) {
+		c.Redis.Password = pw
+	}
+}
+
+func WithRedisDB(db int) func(*Config) {
+	return func(c *Config) {
+		c.Redis.DB = db
+	}
 }
 
 func WithEnvironment(environment string) func(*Config) {
@@ -114,6 +139,11 @@ func DefaultConfig() Config {
 			UserPoolID:  "UNSET",
 			AppClientID: "UNSET",
 		},
+		Redis: RedisConfig{
+			Addr:     "localhost:6379",
+			Password: "",
+			DB:       0,
+		},
 	}
 }
 
@@ -162,6 +192,9 @@ func NewConfigFromEnv(options ...func(*Config)) (Config, error) {
 		setFromEnv(&config.Cognito.Region, "COGNITO_REGION"),
 		setFromEnv(&config.Cognito.UserPoolID, "COGNITO_USER_POOL_ID"),
 		setFromEnv(&config.Cognito.AppClientID, "COGNITO_APP_CLIENT_ID"),
+		setFromEnv(&config.Redis.Addr, "REDIS_ADDR"),
+		setFromEnv(&config.Redis.Password, "REDIS_PASSWORD"),
+		setFromEnv(&config.Redis.DB, "REDIS_DB"),
 	)
 
 	for _, opt := range options {

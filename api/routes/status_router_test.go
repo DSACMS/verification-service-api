@@ -5,6 +5,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/DSACMS/verification-service-api/pkg/core"
 	"github.com/gofiber/fiber/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -12,7 +13,13 @@ import (
 
 func TestStatusEndpoint(t *testing.T) {
 	app := fiber.New()
-	StatusRouter(app)
+
+	cfg := core.Config{
+		Redis: core.RedisConfig{
+			Addr: "localhost:6379",
+		},
+	}
+	StatusRouter(app, cfg)
 
 	req := httptest.NewRequest(http.MethodGet, "/status", http.NoBody)
 

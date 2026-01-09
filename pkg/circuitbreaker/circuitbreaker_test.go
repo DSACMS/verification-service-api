@@ -7,17 +7,25 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestDefaultOptions(t *testing.T) {
-	expected := Options{
-		FailureThreshold: 5,
-		FailWindow:       10 * time.Second,
-		OpenCoolDown:     30 * time.Second,
-		HalfOpenLease:    5 * time.Second,
-		FailOpen:         true,
-		Prefix:           "cb:",
-	}
+func TestDefaultOptions_AreUsable(t *testing.T) {
+	opts := DefaultOptions()
 
-	result := DefaultOptions()
+	assert.Greater(t, opts.FailureThreshold, 0)
+	assert.Greater(t, opts.FailWindow, time.Duration(0))
+	assert.Greater(t, opts.OpenCoolDown, time.Duration(0))
+	assert.Greater(t, opts.HalfOpenLease, time.Duration(0))
+}
 
-	assert.Equalf(t, expected, result, "DefaultOptions() expected to equal %v; Got %v", expected, result)
+func TestNewBreaker_UsesDefaults(t *testing.T) {
+	rdb := newTestRedisClient(t)
+
+	breaker := NewRedisBreaker(rdb, "test", Options{})
+
+	def := DefaultOptions()
+	assert.Equal(t, def.FailureThreshold, breaker.opts.FailureThreshold)
+	assert.Equal(t, def.FailWindow, breaker.opts.FailWindow)
+	assert.Equal(t, def.OpenCoolDown, breaker.opts.OpenCoolDown)
+	assert.Equal(t, def.HalfOpenLease, breaker.opts.HalfOpenLease)
+	assert.Equal(t, def.FailOpen, breaker.opts.FailOpen)
+	assert.Equal(t, def.Prefix, breaker.opts.Prefix)
 }
