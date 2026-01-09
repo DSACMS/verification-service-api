@@ -4,6 +4,9 @@ import (
 	"context"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/sdk/resource"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
@@ -27,11 +30,13 @@ func TestOtel_EmitsSpan(t *testing.T) {
 	_, span := tr.Start(ctx, "hello")
 	span.End()
 
-	ended := rec.Ended()
-	if len(ended) != 1 {
-		t.Fatalf("expected 1 span, got %d", len(ended))
-	}
-	if ended[0].Name() != "hello" {
-		t.Fatalf("expected span name 'hello', got %q", ended[0].Name())
-	}
+	result := rec.Ended()
+	expected := 1
+
+	require.Len(t, result, expected, "expected %d ended span(s)", expected)
+
+	expectedName := "hello"
+	resultName := result[0].Name()
+
+	assert.Equal(t, expectedName, resultName, "span name should match")
 }
