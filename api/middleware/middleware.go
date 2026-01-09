@@ -27,11 +27,6 @@ type CognitoVerifier struct {
 }
 
 func NewCognitoVerifier(cfg CognitoConfig) (*CognitoVerifier, error) {
-	// if cfg.Region == "" || cfg.UserPoolID == "" || cfg.ClientID == "" {
-	//		return nil, errors.New("Region, UserPoolID, and ClientID are required")
-	// }
-
-	// split to specify which is missing ^^^
 	if cfg.Region == "" {
 		return nil, errors.New("Region is required")
 	}
@@ -66,11 +61,6 @@ func NewCognitoVerifierWithURLs(cfg CognitoConfig, issuer, jwksURL string) (*Cog
 		return nil, errors.New("ClientID is required")
 	}
 
-	// if issuer == "" || jwksURL == "" {
-	//		return nil, errors.New("issuer and jwksURL are required")
-	// }
-
-	// split to specify which is missing ^^^
 	if issuer == "" {
 		return nil, errors.New("issuer is required")
 	}
@@ -98,11 +88,9 @@ func (v *CognitoVerifier) FiberMiddleware() fiber.Handler {
 			return fiber.ErrUnauthorized
 		}
 
-		// 5 second limit to set up
 		ctx, cancel := context.WithTimeout(c.Context(), 5*time.Second)
 		defer cancel()
 
-		// pull cached keys
 		keyset, err := v.cache.Get(ctx, v.jwksURL)
 		if err != nil {
 			return fiber.NewError(fiber.StatusUnauthorized, "unable to load jwks")

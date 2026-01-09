@@ -25,12 +25,37 @@ type CognitoConfig struct {
 	AppClientID string
 }
 
+type RedisConfig struct {
+	Addr     string
+	Password string
+	DB       int
+}
+
 type Config struct {
 	Cognito     CognitoConfig
 	Environment string
 	Otel        OtelConfig
 	Port        int
 	SkipAuth    bool
+	Redis       RedisConfig
+}
+
+func WithRedisAddr(addr string) func(*Config) {
+	return func(c *Config) {
+		c.Redis.Addr = addr
+	}
+}
+
+func WithRedisPassword(pw string) func(*Config) {
+	return func(c *Config) {
+		c.Redis.Password = pw
+	}
+}
+
+func WithRedisDB(db int) func(*Config) {
+	return func(c *Config) {
+		c.Redis.DB = db
+	}
 }
 
 func WithEnvironment(environment string) func(*Config) {
@@ -114,6 +139,11 @@ func DefaultConfig() Config {
 			UserPoolID:  "UNSET",
 			AppClientID: "UNSET",
 		},
+		Redis: RedisConfig{
+			Addr:     "localhost:6379",
+			Password: "",
+			DB:       0,
+		},
 	}
 }
 
@@ -133,19 +163,19 @@ func setFromEnv(loc any, key string) error {
 
 	switch v := loc.(type) {
 	case *string:
-		(*v) = strValue
+		*v = strValue
 	case *bool:
 		val, err := strconv.ParseBool(strValue)
 		if err != nil {
 			return fmt.Errorf("failed to parse %s as a bool: %w", strValue, err)
 		}
-		(*v) = val
+		*v = val
 	case *int:
 		val, err := strconv.ParseInt(strValue, 10, strconv.IntSize)
 		if err != nil {
 			return fmt.Errorf("failed to parse %s as an int: %w", strValue, err)
 		}
-		(*v) = int(val)
+		*v = int(val)
 	}
 	return nil
 }
@@ -162,6 +192,9 @@ func NewConfigFromEnv(options ...func(*Config)) (Config, error) {
 		setFromEnv(&config.Cognito.Region, "COGNITO_REGION"),
 		setFromEnv(&config.Cognito.UserPoolID, "COGNITO_USER_POOL_ID"),
 		setFromEnv(&config.Cognito.AppClientID, "COGNITO_APP_CLIENT_ID"),
+		setFromEnv(&config.Redis.Addr, "REDIS_ADDR"),
+		setFromEnv(&config.Redis.Password, "REDIS_PASSWORD"),
+		setFromEnv(&config.Redis.DB, "REDIS_DB"),
 	)
 
 	for _, opt := range options {
@@ -189,7 +222,7 @@ func LoadEnv(environment ...string) error {
 	if len(environment) > 0 {
 		env = environment[0]
 	}
-	
+
 	if env != "" {
 		file := ".env." + env + ".local"
 		filenames = append([]string{file}, filenames...)
