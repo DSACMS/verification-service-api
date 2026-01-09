@@ -17,6 +17,8 @@ type RedisBreaker struct {
 	opts Options
 }
 
+var _ Breaker = (*RedisBreaker)(nil)
+
 func NewRedisBreaker(rdb *redis.Client, name string, opts Options) *RedisBreaker {
 	if opts.FailureThreshold <= 0 {
 		opts = DefaultOptions()

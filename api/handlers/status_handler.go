@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"time"
 
 	redisLocal "github.com/DSACMS/verification-service-api/pkg/redis"
 	"github.com/gofiber/fiber/v2"
@@ -12,7 +13,8 @@ import (
 // running properly
 func GetRDBStatus(rdb *redis.Client) fiber.Handler {
 	return func(c *fiber.Ctx) error {
-		ctx := context.Background()
+		ctx, cancel := context.WithTimeout(c.Context(), 2*time.Second)
+		defer cancel()
 
 		err := redisLocal.Ping(ctx, rdb)
 		if err != nil {
