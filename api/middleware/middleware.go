@@ -5,8 +5,10 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"sync"
 	"time"
 
+	"github.com/DSACMS/verification-service-api/pkg/circuitbreaker"
 	"github.com/gofiber/fiber/v2"
 	"github.com/lestrrat-go/jwx/v2/jwk"
 	"github.com/lestrrat-go/jwx/v2/jwt"
@@ -133,4 +135,65 @@ func (v *CognitoVerifier) FiberMiddleware() fiber.Handler {
 
 		return c.Next()
 	}
+}
+
+func WithCircuitBreaker(newBreaker func(name string) *circuitbreaker.RedisBreaker) func(fiber.Handler) fiber.Handler {
+	var mu sync.RWMutex
+	breakers := make(map[string]*circuitbreaker.RedisBreaker)
+
+	getBreaker := func(name string) *circuitbreaker.RedisBreaker {
+		mu.RLock()
+		b := breakers[name]
+		mu.RUnlock()
+		if b != nil {
+			return b
+		}
+
+		mu.Lock()
+		defer mu.Unlock()
+		if b = breakers[name]; b != nil {
+			return b
+		}
+
+		b = newBreaker(name)
+		breakers[name] = b
+		return b
+	}
+
+	return func(next fiber.Handler) fiber.Handler {
+		return func(c *fiber.Ctx) error {
+			name := breakerName(c)
+			breaker := getBreaker(name)
+
+			err := breaker.Allow(c.Context())
+			if err != nil {
+				if errors.Is(err, circuitbreaker.ErrCircuitOpen) {
+					return c.Status(fiber.StatusServiceUnavailable).JSON(fiber.Map{
+						"error": "service temporarily unavailable",
+						"code":  "CIRCUIT_OPEN",
+					})
+				}
+
+				return c.Status(fiber.StatusServiceUnavailable).JSON(fiber.Map{
+					"error": "service temporarilt unavailable",
+					"code":  "BREAKER_ERROR",
+				})
+			}
+
+			return next(c)
+		}
+	}
+}
+
+func breakerName(c *fiber.Ctx) string {
+	var path string
+	r := c.Route()
+	if r != nil && r.Path != "" {
+		path = r.Path
+	} else {
+		path = c.Path()
+	}
+
+	return c.Method() + " " + path
+
 }

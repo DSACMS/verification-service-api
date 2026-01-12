@@ -2,6 +2,7 @@ package circuitbreaker
 
 import (
 	"context"
+	"log"
 	"strconv"
 	"time"
 
@@ -43,6 +44,7 @@ func (b *RedisBreaker) Allow(ctx context.Context) error {
 	}
 	if err != nil {
 		if b.opts.FailOpen {
+			log.Printf("Redis GET failed; defaulting to allow (assume closed). name=%q key=%q err=%v", b.name, stateKey, err)
 			return nil
 		}
 		return ErrCircuitOpen
@@ -51,6 +53,7 @@ func (b *RedisBreaker) Allow(ctx context.Context) error {
 	timeToHalfOpenMs, convErr := strconv.ParseInt(val, 10, 64)
 	if convErr != nil {
 		if b.opts.FailOpen {
+			log.Printf("Invalid redis value; defaulting to allow (assume closed). name=%q key=%q err=%v", b.name, stateKey, err)
 			return nil
 		}
 		return ErrCircuitOpen

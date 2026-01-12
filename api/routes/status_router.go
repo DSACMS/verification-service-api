@@ -2,6 +2,8 @@ package routes
 
 import (
 	"github.com/DSACMS/verification-service-api/api/handlers"
+	"github.com/DSACMS/verification-service-api/api/middleware"
+	"github.com/DSACMS/verification-service-api/pkg/circuitbreaker"
 	"github.com/DSACMS/verification-service-api/pkg/core"
 	"github.com/DSACMS/verification-service-api/pkg/redis"
 
@@ -16,5 +18,9 @@ func StatusRouter(app fiber.Router, cfg core.Config) {
 		DB:       cfg.Redis.DB,
 	})
 
-	app.Get("/status", handlers.GetRDBStatus(rdb))
+	withBreaker := middleware.WithCircuitBreaker(func(name string) *circuitbreaker.RedisBreaker {
+		return circuitbreaker.NewRedisBreaker(rdb, name, circuitbreaker.DefaultOptions())
+	})
+
+	app.Get("/status", withBreaker(handlers.GetRDBStatus(rdb)))
 }
