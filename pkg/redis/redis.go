@@ -2,8 +2,10 @@ package redis
 
 import (
 	"context"
+	"log"
 	"time"
 
+	"github.com/redis/go-redis/extra/redisotel/v9"
 	"github.com/redis/go-redis/v9"
 )
 
@@ -26,8 +28,8 @@ type Config struct {
 
 func NewClient(c Config) *redis.Client {
 	opts := &redis.Options{
-		Addr: c.Addr,
-		Password: c.Password, // No password
+		Addr:         c.Addr,
+		Password:     c.Password, // No password
 		DB:           c.DB,
 		DialTimeout:  defaultDialTimeout,
 		ReadTimeout:  defaultReadTimeout,
@@ -37,7 +39,18 @@ func NewClient(c Config) *redis.Client {
 		MinIdleConns: defaultMinIdleConns,
 	}
 
-	return redis.NewClient(opts)
+	rdb := redis.NewClient(opts)
+
+	err := redisotel.InstrumentTracing(rdb)
+	if err != nil {
+		log.Printf("Otel Tracing instrumentation failed: %v", err)
+	}
+
+	err = redisotel.InstrumentMetrics(rdb)
+	if err != nil {
+		log.Printf("Otel Metrics instrumentation failed: %v", err)
+	}
+	return rdb
 }
 
 func Ping(ctx context.Context, rdb *redis.Client) error {

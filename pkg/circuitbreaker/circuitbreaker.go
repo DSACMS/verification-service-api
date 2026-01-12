@@ -8,6 +8,15 @@ import (
 
 var ErrCircuitOpen = errors.New("circuit breaker is open")
 
+const (
+	defaultFailureThreshold = 5
+	defaultFailWindow       = 10
+	defaultOpenCooldown     = 30
+	defaultHalfOpenLease    = 5
+	defaultFailOpen         = true
+	defaultPrefix           = "cb:"
+)
+
 type Breaker interface {
 	Allow(ctx context.Context) error
 	OnSuccess(ctx context.Context)
@@ -33,11 +42,11 @@ type Options struct {
 
 func DefaultOptions() Options {
 	return Options{
-		FailureThreshold: 5,
-		FailWindow:       10 * time.Second,
-		OpenCoolDown:     30 * time.Second,
-		HalfOpenLease:    5 * time.Second,
-		FailOpen:         true,
-		Prefix:           "cb:",
+		FailureThreshold: defaultFailureThreshold,
+		FailWindow:       defaultFailWindow * time.Second,
+		OpenCoolDown:     defaultOpenCooldown * time.Second,
+		HalfOpenLease:    defaultHalfOpenLease * time.Second,
+		FailOpen:         defaultFailOpen,
+		Prefix:           defaultPrefix,
 	}
 }
