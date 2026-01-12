@@ -109,7 +109,7 @@ func New(cfg *Config) (*fiber.App, error) {
 		app.Use(verifier.FiberMiddleware())
 	}
 
-	routes.StatusRouter(app)
+	routes.StatusRouter(app, cfg.Config)
 
 	return app, nil
 }

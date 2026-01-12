@@ -5,6 +5,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
+	"github.com/DSACMS/verification-service-api/pkg/core"
 	"github.com/gofiber/fiber/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -12,7 +13,13 @@ import (
 
 func TestStatusEndpoint(t *testing.T) {
 	app := fiber.New()
-	StatusRouter(app)
+
+	cfg := core.Config{
+		Redis: core.RedisConfig{
+			Addr: "localhost:6379",
+		},
+	}
+	StatusRouter(app, cfg)
 
 	req := httptest.NewRequest(http.MethodGet, "/status", http.NoBody)
 
@@ -23,5 +30,12 @@ func TestStatusEndpoint(t *testing.T) {
 	require.NoErrorf(t, err, "app.Test(req) returned error: %v", err)
 	defer result.Body.Close()
 
-	assert.Equalf(t, expected, result, "app.Test(req) returned %v; expected: %v", result, expected)
+	assert.Equalf(
+		t,
+		expected,
+		result.StatusCode,
+		"app.Test(req) returned status %v; expected: %v",
+		result.StatusCode,
+		expected,
+	)
 }
