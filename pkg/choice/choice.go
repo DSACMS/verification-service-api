@@ -10,7 +10,7 @@ func Ternary[T any](condition bool, isTrue, isFalse T) T {
 }
 
 // Function ternary operator
-func FunctionTernary[T any](condition bool, isTrue, isFalse func() T) T {
+func FuncTernary[T any](condition bool, isTrue, isFalse func() T) T {
 	if condition == true {
 		return isTrue()
 	}
