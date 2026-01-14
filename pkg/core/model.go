@@ -29,4 +29,5 @@ type Config struct {
 	Port        int
 	SkipAuth    bool
 	Redis       RedisConfig
+	
 }

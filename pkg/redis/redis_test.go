@@ -2,6 +2,8 @@ package redis
 
 import (
 	"context"
+	"io"
+	"log/slog"
 	"os"
 	"testing"
 	"time"
@@ -16,7 +18,9 @@ func TestNewClient_Ping_Set_Get(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 
-	rdb := NewClient(Config{Addr: addr})
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+
+	rdb := NewClient(Config{Addr: addr}, logger)
 
 	err := Ping(ctx, rdb)
 
@@ -45,7 +49,9 @@ func NewClient_Works(t *testing.T) {
 
 	addr := os.Getenv("REDIS_ADDR")
 
-	rdb := NewClient(Config{Addr: addr})
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+
+	rdb := NewClient(Config{Addr: addr}, logger)
 
 	assert.NotNil(t, rdb, "NewClient(Config{Addr: addr}) should not be nil")
 }

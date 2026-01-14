@@ -25,12 +25,11 @@ func errorHandler(logger *slog.Logger, otel core.OtelService) fiber.ErrorHandler
 		span.RecordError(err)
 		span.SetStatus(codes.Error, err.Message)
 
-		logger.Error(
-			"Fiber Error",
-			"Code",
-			err.Code,
-			"Message",
-			err.Message,
+		logger.ErrorContext(
+			ctx.Context(),
+			"fiber error",
+			"code", err.Code,
+			"message", err.Message,
 		)
 
 		return ctx.
@@ -68,6 +67,13 @@ type Config struct {
 }
 
 func New(cfg *Config) (*fiber.App, error) {
+	if cfg.Logger == nil {
+		cfg.Logger = slog.Default()
+	}
+
+	// Scope logger to the API layer (adds component=api to all logs).
+	logger := cfg.Logger.With(slog.String("component", "api"))
+
 	fiberConfig := fiber.Config{
 		ErrorHandler: errorHandler(cfg.Logger, cfg.Otel),
 	}
@@ -109,7 +115,7 @@ func New(cfg *Config) (*fiber.App, error) {
 		app.Use(verifier.FiberMiddleware())
 	}
 
-	routes.StatusRouter(app, cfg.Config)
+	routes.StatusRouter(app, cfg.Config, logger)
 
 	return app, nil
 }

@@ -2,7 +2,7 @@ package redis
 
 import (
 	"context"
-	"log"
+	"log/slog"
 	"time"
 
 	"github.com/redis/go-redis/extra/redisotel/v9"
@@ -26,7 +26,18 @@ type Config struct {
 	DB       int
 }
 
-func NewClient(c Config) *redis.Client {
+func NewClient(c Config, logger *slog.Logger) *redis.Client {
+	if logger == nil {
+		logger = slog.Default()
+	}
+
+	// Attach component metadata once
+	logger = logger.With(
+		slog.String("component", "redis"),
+		slog.String("addr", c.Addr),
+		slog.Int("db", c.DB),
+	)
+
 	opts := &redis.Options{
 		Addr:         c.Addr,
 		Password:     c.Password, // No password
@@ -39,16 +50,18 @@ func NewClient(c Config) *redis.Client {
 		MinIdleConns: defaultMinIdleConns,
 	}
 
+	logger.Info("initializing redis client")
+
 	rdb := redis.NewClient(opts)
 
 	err := redisotel.InstrumentTracing(rdb)
 	if err != nil {
-		log.Printf("Otel Tracing instrumentation failed: %v", err)
+		logger.Warn("Otel Tracing Instrumentation Failed", "err", err)
 	}
 
 	err = redisotel.InstrumentMetrics(rdb)
 	if err != nil {
-		log.Printf("Otel Metrics instrumentation failed: %v", err)
+		logger.Warn("Otel Metrics instrumentation Failed", "err", err)
 	}
 	return rdb
 }

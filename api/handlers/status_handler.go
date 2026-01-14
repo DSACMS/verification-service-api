@@ -6,7 +6,7 @@ import (
 
 	redisLocal "github.com/DSACMS/verification-service-api/pkg/redis"
 	"github.com/gofiber/fiber/v2"
-	"github.com/redis/go-redis/v9"
+	goredis "github.com/redis/go-redis/v9"
 )
 
 const (
@@ -15,7 +15,7 @@ const (
 
 // Build a handler that returns a 2** status when the service is
 // running properly
-func GetRDBStatus(rdb *redis.Client) fiber.Handler {
+func GetRDBStatus(rdb *goredis.Client) fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		ctx, cancel := context.WithTimeout(c.Context(), contextTimeout*time.Second)
 		defer cancel()
