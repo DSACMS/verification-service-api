@@ -2,6 +2,8 @@ package circuitbreaker
 
 import (
 	"context"
+	"io"
+	"log/slog"
 	"strconv"
 	"testing"
 	"time"
@@ -71,7 +73,10 @@ func TestNewRedisBreaker(t *testing.T) {
 	testBreakerOpts := newTestBreakerOptions(t)
 
 	name := "redisBreaker:" + t.Name()
-	result := NewRedisBreaker(rdb, name, testBreakerOpts)
+
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+
+	result := NewRedisBreaker(rdb, name, testBreakerOpts, logger)
 
 	require.NotNil(t, result, "NewRedisBreaker should not return nil")
 	assert.Same(t, rdb, result.rdb, "Expected breaker to keep the passed-in redis client instance")
@@ -84,7 +89,10 @@ func TestNewRedisBreaker_keys(t *testing.T) {
 	testBreakerOpts := newTestBreakerOptions(t)
 
 	name := "redisBreaker:" + t.Name()
-	breaker := NewRedisBreaker(rdb, name, testBreakerOpts)
+
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+
+	breaker := NewRedisBreaker(rdb, name, testBreakerOpts, logger)
 
 	resultStateKey, resultFailsKey := breaker.keys()
 
@@ -100,7 +108,10 @@ func TestNewRedisBreaker_Allow(t *testing.T) {
 	testBreakerOpts := newTestBreakerOptions(t)
 
 	name := "redisBreaker:" + t.Name()
-	breaker := NewRedisBreaker(rdb, name, testBreakerOpts)
+
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+
+	breaker := NewRedisBreaker(rdb, name, testBreakerOpts, logger)
 
 	ctx := context.Background()
 
@@ -121,7 +132,10 @@ func TestRedisBreaker_OnFailure_TransitionsToOpen(t *testing.T) {
 	ctx := context.Background()
 
 	name := "redisBreaker:" + t.Name()
-	breaker := NewRedisBreaker(rdb, name, opts)
+
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+
+	breaker := NewRedisBreaker(rdb, name, opts, logger)
 
 	stateKey, failsKey := breaker.keys()
 	t.Cleanup(func() { _ = rdb.Del(ctx, stateKey, failsKey).Err() })

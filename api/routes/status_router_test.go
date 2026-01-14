@@ -1,6 +1,8 @@
 package routes
 
 import (
+	"io"
+	"log/slog"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -19,7 +21,10 @@ func TestStatusEndpoint(t *testing.T) {
 			Addr: "localhost:6379",
 		},
 	}
-	StatusRouter(app, cfg)
+
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+
+	StatusRouter(app, cfg, logger)
 
 	req := httptest.NewRequest(http.MethodGet, "/status", http.NoBody)
 
