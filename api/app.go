@@ -68,7 +68,7 @@ type Config struct {
 
 func New(cfg *Config) (*fiber.App, error) {
 	if cfg.Logger == nil {
-		cfg.Logger = slog.Default()
+		cfg.Logger = core.NewLogger(cfg)
 	}
 
 	// Scope logger to the API layer (adds component=api to all logs).
