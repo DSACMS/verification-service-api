@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"log/slog"
 	"os"
 	"os/signal"
 	"syscall"
@@ -26,9 +25,11 @@ func main() {
 }
 
 func run() error {
+	logger := core.NewLogger(nil)
+
 	err := core.LoadEnv()
 	if err != nil {
-		slog.Default().Error(
+		logger.Error(
 			"Failed to load environment",
 			"err",
 			err,
@@ -38,7 +39,7 @@ func run() error {
 
 	cfg, err := core.NewConfigFromEnv()
 	if err != nil {
-		slog.Default().Error(
+		logger.Error(
 			"Failed to get configuration",
 			"err",
 			err,
