@@ -25,7 +25,8 @@ func main() {
 }
 
 func run() error {
-	logger := core.NewLogger(nil)
+	bootstrapCfg := core.Config{}
+	logger := core.NewLogger(&bootstrapCfg)
 
 	err := core.LoadEnv()
 	if err != nil {
@@ -63,7 +64,7 @@ func run() error {
 	}
 	defer otel.Shutdown(ctx, initLogger)
 
-	logger := core.NewLoggerWithOtel(&cfg, otel)
+	logger = core.NewLoggerWithOtel(&cfg, otel)
 	app, err := api.New(&api.Config{
 		Core:   cfg,
 		Logger: logger,
