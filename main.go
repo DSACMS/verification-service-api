@@ -65,7 +65,7 @@ func run() error {
 
 	logger := core.NewLoggerWithOtel(&cfg, otel)
 	app, err := api.New(&api.Config{
-		Config: cfg,
+		Core:   cfg,
 		Logger: logger,
 		Otel:   otel,
 	})
