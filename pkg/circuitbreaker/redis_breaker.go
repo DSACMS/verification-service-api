@@ -2,6 +2,7 @@ package circuitbreaker
 
 import (
 	"context"
+	"log/slog"
 	"strconv"
 	"time"
 
@@ -15,18 +16,25 @@ type RedisBreaker struct {
 	name string
 	// Defines the behaviour and timing characteristics of the breaker.
 	opts Options
+	// Logger for observability
+	logger *slog.Logger
 }
 
 var _ Breaker = (*RedisBreaker)(nil)
 
-func NewRedisBreaker(rdb *redis.Client, name string, opts Options) *RedisBreaker {
+func NewRedisBreaker(rdb *redis.Client, name string, opts Options, logger *slog.Logger) *RedisBreaker {
 	if opts.FailureThreshold <= 0 {
 		opts = DefaultOptions()
 	}
 	if opts.Prefix == "" {
 		opts.Prefix = "cb:"
 	}
-	return &RedisBreaker{rdb: rdb, name: name, opts: opts}
+
+	if logger == nil {
+		logger = slog.Default()
+	}
+
+	return &RedisBreaker{rdb: rdb, name: name, opts: opts, logger: logger}
 }
 
 func (b *RedisBreaker) keys() (stateKey, failsKey string) {
@@ -43,14 +51,17 @@ func (b *RedisBreaker) Allow(ctx context.Context) error {
 	}
 	if err != nil {
 		if b.opts.FailOpen {
+			b.logger.WarnContext(ctx, "Redis GET failed; defaulting to allow(assume closed).", "key", stateKey, "err", err)
 			return nil
 		}
 		return ErrCircuitOpen
+
 	}
 
 	timeToHalfOpenMs, convErr := strconv.ParseInt(val, 10, 64)
 	if convErr != nil {
 		if b.opts.FailOpen {
+			b.logger.WarnContext(ctx, "Invalid redis value; defaulting to allow (assume closed).", "key", stateKey, "value", val, "err", convErr)
 			return nil
 		}
 		return ErrCircuitOpen
@@ -75,6 +86,7 @@ func (b *RedisBreaker) OnFailure(ctx context.Context) {
 
 	fails, err := b.rdb.Incr(ctx, failsKey).Result()
 	if err != nil {
+		b.logger.DebugContext(ctx, "redis INCR failed", "key", failsKey, "err", err)
 		return
 	}
 

@@ -3,146 +3,47 @@ package core
 import (
 	"errors"
 	"fmt"
-	"os"
-	"strconv"
-
-	"github.com/joho/godotenv"
 )
 
-type OtlpConfig struct {
-	Endpoint string
-	Insecure bool
-}
+const (
+	defaultConfigEnvironment = "development"
+	defaultConfigPort        = 8000
+	defaultSkipAuth          = false
 
-type OtelConfig struct {
-	OtlpExporter OtlpConfig
-	Disable      bool
-}
+	defaultOtelDisable          = false
+	defaultOTLPExporterEndpoint = "localhost:4317"
+	defaultOTLPInsecure         = false
 
-type CognitoConfig struct {
-	Region      string
-	UserPoolID  string
-	AppClientID string
-}
+	defaultCognitoRegion      = "us-east-1"
+	defaultCognitoUserPoolID  = "UNSET"
+	defaultCognitoAppClientID = "UNSET"
 
-type RedisConfig struct {
-	Addr     string
-	Password string
-	DB       int
-}
-
-type Config struct {
-	Cognito     CognitoConfig
-	Environment string
-	Otel        OtelConfig
-	Port        int
-	SkipAuth    bool
-	Redis       RedisConfig
-}
-
-func WithRedisAddr(addr string) func(*Config) {
-	return func(c *Config) {
-		c.Redis.Addr = addr
-	}
-}
-
-func WithRedisPassword(pw string) func(*Config) {
-	return func(c *Config) {
-		c.Redis.Password = pw
-	}
-}
-
-func WithRedisDB(db int) func(*Config) {
-	return func(c *Config) {
-		c.Redis.DB = db
-	}
-}
-
-func WithEnvironment(environment string) func(*Config) {
-	return func(c *Config) {
-		c.Environment = environment
-	}
-}
-
-func WithPort(port int) func(*Config) {
-	return func(c *Config) {
-		c.Port = port
-	}
-}
-
-func WithSkipAuth(value ...bool) func(*Config) {
-	val := true
-	if len(value) > 0 {
-		val = value[0]
-	}
-
-	return func(c *Config) {
-		c.SkipAuth = val
-	}
-}
-
-func WithOtlpEndpoint(endpoint string) func(*Config) {
-	return func(c *Config) {
-		c.Otel.OtlpExporter.Endpoint = endpoint
-	}
-}
-
-func WithOtlpInsecure(insecure bool) func(*Config) {
-	return func(c *Config) {
-		c.Otel.OtlpExporter.Insecure = insecure
-	}
-}
-
-func WithOtelDisable(value ...bool) func(*Config) {
-	val := true
-	if len(value) > 0 {
-		val = value[0]
-	}
-
-	return func(c *Config) {
-		c.Otel.Disable = val
-	}
-}
-
-func WithCognitoRegion(region string) func(*Config) {
-	return func(c *Config) {
-		c.Cognito.Region = region
-	}
-}
-
-func WithCognitoUserPoolID(userPoolID string) func(*Config) {
-	return func(c *Config) {
-		c.Cognito.UserPoolID = userPoolID
-	}
-}
-
-func WithCognitoAppClientID(appClientID string) func(*Config) {
-	return func(c *Config) {
-		c.Cognito.AppClientID = appClientID
-	}
-}
+	defaultRedisAddr     = "localhost:6379"
+	defaultRedisPassword = ""
+	defaultRedisDB       = 0
+)
 
 func DefaultConfig() Config {
 	return Config{
-		Environment: "development",
-		Port:        8000,
-		SkipAuth:    false,
+		Environment: defaultConfigEnvironment,
+		Port:        defaultConfigPort,
+		SkipAuth:    defaultSkipAuth,
 		Otel: OtelConfig{
-			Disable: false,
+			Disable: defaultOtelDisable,
 			OtlpExporter: OtlpConfig{
-				Endpoint: "localhost:4317",
-				Insecure: false,
+				Endpoint: defaultOTLPExporterEndpoint,
+				Insecure: defaultOTLPInsecure,
 			},
 		},
 		Cognito: CognitoConfig{
-			Region:      "us-east-1",
-			UserPoolID:  "UNSET",
-			AppClientID: "UNSET",
+			Region:      defaultCognitoRegion,
+			UserPoolID:  defaultCognitoUserPoolID,
+			AppClientID: defaultCognitoAppClientID,
 		},
 		Redis: RedisConfig{
-			Addr:     "localhost:6379",
-			Password: "",
-			DB:       0,
+			Addr:     defaultRedisAddr,
+			Password: defaultRedisPassword,
+			DB:       defaultRedisDB,
 		},
 	}
 }
@@ -153,31 +54,6 @@ func NewConfig(options ...func(*Config)) Config {
 		opt(&config)
 	}
 	return config
-}
-
-func setFromEnv(loc any, key string) error {
-	strValue := os.Getenv(key)
-	if strValue == "" {
-		return nil
-	}
-
-	switch v := loc.(type) {
-	case *string:
-		*v = strValue
-	case *bool:
-		val, err := strconv.ParseBool(strValue)
-		if err != nil {
-			return fmt.Errorf("failed to parse %s as a bool: %w", strValue, err)
-		}
-		*v = val
-	case *int:
-		val, err := strconv.ParseInt(strValue, 10, strconv.IntSize)
-		if err != nil {
-			return fmt.Errorf("failed to parse %s as an int: %w", strValue, err)
-		}
-		*v = int(val)
-	}
-	return nil
 }
 
 func NewConfigFromEnv(options ...func(*Config)) (Config, error) {
@@ -202,14 +78,6 @@ func NewConfigFromEnv(options ...func(*Config)) (Config, error) {
 	}
 
 	return config, err
-}
-
-func loadEnvFile(filename string) error {
-	err := godotenv.Load(filename)
-	if err == nil || errors.Is(err, os.ErrNotExist) {
-		return nil
-	}
-	return fmt.Errorf("error loading file %s: %w", filename, err)
 }
 
 func LoadEnv(environment ...string) error {
@@ -241,19 +109,4 @@ func LoadEnv(environment ...string) error {
 	}
 
 	return errs
-}
-
-func getEnv(key, fallback string) string {
-	// returns value of associated env key
-	value := os.Getenv(key)
-
-	if value != "" {
-		return value
-	}
-
-	return fallback
-}
-
-func (c *Config) IsProd() bool {
-	return c.Environment == "production"
 }
