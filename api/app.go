@@ -63,7 +63,7 @@ func stackTraceHandler(logger *slog.Logger) func(*fiber.Ctx, any) {
 type Config struct {
 	Otel   core.OtelService
 	Logger *slog.Logger
-	core.Config
+	Core   core.Config
 }
 
 func New(cfg *Config) (*fiber.App, error) {
@@ -103,11 +103,11 @@ func New(cfg *Config) (*fiber.App, error) {
 		},
 	))
 
-	if !cfg.SkipAuth {
+	if !cfg.Core.SkipAuth {
 		verifier, err := middleware.NewCognitoVerifier(middleware.CognitoConfig{
-			Region:     cfg.Cognito.Region,
-			UserPoolID: cfg.Cognito.UserPoolID,
-			ClientID:   cfg.Cognito.AppClientID,
+			Region:     cfg.Core.Cognito.Region,
+			UserPoolID: cfg.Core.Cognito.UserPoolID,
+			ClientID:   cfg.Core.Cognito.AppClientID,
 		})
 		if err != nil {
 			return nil, fmt.Errorf("failed to initialize cognito middleware: %w", err)
@@ -115,7 +115,7 @@ func New(cfg *Config) (*fiber.App, error) {
 		app.Use(verifier.FiberMiddleware())
 	}
 
-	routes.StatusRouter(app, cfg.Config, logger)
+	routes.StatusRouter(app, cfg.Core)
 
 	return app, nil
 }
