@@ -1,6 +1,8 @@
 package circuitbreaker
 
 import (
+	"io"
+	"log/slog"
 	"testing"
 	"time"
 
@@ -19,7 +21,9 @@ func TestDefaultOptions_AreUsable(t *testing.T) {
 func TestNewBreaker_UsesDefaults(t *testing.T) {
 	rdb := newTestRedisClient(t)
 
-	breaker := NewRedisBreaker(rdb, "test", Options{})
+	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
+
+	breaker := NewRedisBreaker(rdb, "test", Options{}, logger)
 
 	def := DefaultOptions()
 	assert.Equal(t, def.FailureThreshold, breaker.opts.FailureThreshold)
