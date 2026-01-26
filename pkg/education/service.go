@@ -61,15 +61,22 @@ func OAuthTokenGenerator(ctx context.Context, cfg *core.NSCConfig) (OAuthTokenRe
 }
 
 func TestEducationEndpoint(ctx context.Context, cfg *core.Config, reqBody Request) (Response, error) {
+	// token, err := OAuthTokenGenerator(ctx, &cfg.NSC)
+	// if err != nil {
+	// 	return Response{}, fmt.Errorf("token could not be generated %w", err)
+	// }
+
 	token, err := OAuthTokenGenerator(ctx, &cfg.NSC)
 	if err != nil {
-		return Response{}, err
+		return Response{}, fmt.Errorf("nsc oauth failed: %w", err)
 	}
+
+	fmt.Printf("token_type=%q scope=%q expires_in=%d\n", token.TokenType, token.Scope, token.ExpiresIn)
 
 	// auth := token.TokenType + " " + token.AccessToken
 	auth := "Bearer " + token.AccessToken
 
-	url := cfg.NSC.BaseURL
+	url := cfg.NSC.SubmitURL
 
 	body, err := json.Marshal(reqBody)
 	if err != nil {
@@ -87,25 +94,33 @@ func TestEducationEndpoint(ctx context.Context, cfg *core.Config, reqBody Reques
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
-		return Response{}, fmt.Errorf("send submit request: %w", err)
+		return Response{}, fmt.Errorf("nsc submit request failed: %w", err)
 	}
+
 	defer resp.Body.Close()
 
 	respBytes, _ := io.ReadAll(resp.Body)
-	if resp.StatusCode != fiber.StatusOK {
-		return Response{}, fmt.Errorf("failed o read response body. got error: %w", err)
-	}
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return Response{}, fmt.Errorf("nsc returned %d: %s", resp.StatusCode, string(respBytes))
+		wwwAuth := resp.Header.Get("WWW-Authenticate")
+		return Response{}, fmt.Errorf(
+			"nsc submit failed: status=%d www-authenticate=%q content-type=%q body=%q",
+			resp.StatusCode,
+			wwwAuth,
+			resp.Header.Get("Content-Type"),
+			string(respBytes),
+		)
 	}
 
 	var result Response
-
-	err = json.NewDecoder(resp.Body).Decode(&result)
-	if err != nil {
-		return Response{}, fmt.Errorf("failed to unmarshal. got error: %w", err)
+	if err := json.Unmarshal(respBytes, &result); err != nil {
+		return Response{}, fmt.Errorf(
+			"decode nsc response: %w body=%s",
+			err,
+			string(respBytes),
+		)
 	}
 
 	return result, nil
+
 }

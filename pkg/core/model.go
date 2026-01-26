@@ -23,7 +23,7 @@ type RedisConfig struct {
 }
 
 type NSCConfig struct {
-	BaseURL      string
+	SubmitURL    string
 	TokenURL     string
 	ClientSecret string
 	ClientID     string

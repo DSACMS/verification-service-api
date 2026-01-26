@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"fmt"
 	"log"
 	"time"
 
@@ -43,7 +44,12 @@ func TestEducationHandler(cfg *core.Config) fiber.Handler {
 		result, err := education.TestEducationEndpoint(ctx, cfg, reqBody)
 		if err != nil {
 			log.Printf("education test failed: %v", err)
-			return fiber.NewError(fiber.StatusBadGateway, "education verification upstream request failed")
+
+			// return a safe message, but keep the upstream detail
+			return fiber.NewError(
+				fiber.StatusBadGateway,
+				fmt.Sprintf("education verification failed: %v", err),
+			)
 		}
 
 		return c.Status(fiber.StatusOK).JSON(result)

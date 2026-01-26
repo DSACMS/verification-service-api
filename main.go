@@ -45,6 +45,13 @@ func run() error {
 		return ErrRunFailed
 	}
 
+	logger.Info("raw abc123 env", "SKIP_AUTH", os.Getenv("SKIP_AUTH"))
+
+	logger.Info("config loaded",
+		"env", cfg.Environment,
+		"skip_auth", cfg.SkipAuth,
+	)
+
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
