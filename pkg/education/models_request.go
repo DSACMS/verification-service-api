@@ -12,6 +12,7 @@ type Request struct {
 	IdentityDetails  []IdentityDetails `json:"identityDetails"`
 	EndClient        string            `json:"endClient"`
 	PreviousNames    []PreviousName    `json:"previousNames,omitempty"`
+	Terms            string            `json:"terms"`
 }
 
 type IdentityDetails struct {

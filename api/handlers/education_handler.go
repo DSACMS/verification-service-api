@@ -29,16 +29,18 @@ func TestEducationHandler(cfg *core.Config) fiber.Handler {
 			LastName:         "Doe",
 			FirstName:        "John",
 			SSN:              "xxxxxxxxx",
-			IdentityDetails: []education.IdentityDetails{
-				{
-					ElementName:  "degreeDetails/degreeTitle",
-					ElementValue: "MASTER OF ENVIRONMENTAL ENGINEERING",
-				},
-				{
-					ElementName:  "degreeDetails/majorCoursesOfStudy/course",
-					ElementValue: "MATH",
-				},
-			},
+			Terms:            "Y",
+			EndClient:        "Account Name",
+			// IdentityDetails: []education.IdentityDetails{
+			// 	{
+			// 		ElementName:  "degreeDetails/degreeTitle",
+			// 		ElementValue: "MASTER OF ENVIRONMENTAL ENGINEERING",
+			// 	},
+			// 	{
+			// 		ElementName:  "degreeDetails/majorCoursesOfStudy/course",
+			// 		ElementValue: "MATH",
+			// 	},
+			// },
 		}
 
 		result, err := education.TestEducationEndpoint(ctx, cfg, reqBody)

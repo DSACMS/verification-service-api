@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"net/url"
 
@@ -71,10 +72,12 @@ func TestEducationEndpoint(ctx context.Context, cfg *core.Config, reqBody Reques
 		return Response{}, fmt.Errorf("nsc oauth failed: %w", err)
 	}
 
-	fmt.Printf("token_type=%q scope=%q expires_in=%d\n", token.TokenType, token.Scope, token.ExpiresIn)
+	log.Printf("token_type=%q expires_in=%d scope=%q access_token_len=%d",
+		token.TokenType, token.ExpiresIn, token.Scope, len(token.AccessToken),
+	)
 
 	// auth := token.TokenType + " " + token.AccessToken
-	auth := "Bearer " + token.AccessToken
+	auth := fmt.Sprintf("%s %s", token.TokenType, token.AccessToken)
 
 	url := cfg.NSC.SubmitURL
 
@@ -88,9 +91,19 @@ func TestEducationEndpoint(ctx context.Context, cfg *core.Config, reqBody Reques
 		return Response{}, fmt.Errorf("create submit request: %w", err)
 	}
 
-	req.Header.Set("Content-Type", "text/plain")
+	req.Header.Set("Request-type", "insights")
+	req.Header.Set("Content-Type", "text/plain; charset=utf-8")
 	req.Header.Set("Accept", "application/json")
 	req.Header.Set("Authorization", auth)
+
+	log.Printf("token url=%s submit url=%s", cfg.NSC.TokenURL, cfg.NSC.SubmitURL)
+	authHeader := req.Header.Get("Authorization")
+	if len(authHeader) > 20 {
+		authHeader = authHeader[:20] + "..."
+	}
+	log.Printf("auth header=%q", authHeader)
+
+	log.Printf("NSC submit url=%s content-type=%q", url, req.Header.Get("Content-Type"))
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
@@ -114,13 +127,8 @@ func TestEducationEndpoint(ctx context.Context, cfg *core.Config, reqBody Reques
 
 	var result Response
 	if err := json.Unmarshal(respBytes, &result); err != nil {
-		return Response{}, fmt.Errorf(
-			"decode nsc response: %w body=%s",
-			err,
-			string(respBytes),
-		)
+		return Response{}, fmt.Errorf("decode nsc response: %w body=%q", err, string(respBytes))
 	}
-
 	return result, nil
 
 }
