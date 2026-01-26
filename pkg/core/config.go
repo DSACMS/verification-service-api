@@ -19,7 +19,7 @@ const (
 	defaultRedisPassword        string = ""
 	defaultRedisDB              int    = 0
 
-	keyNSCBaseURL   string = "NSC_BASE_URL"
+	keyNSCSubmitURL string = "NSC_SUBMIT_URL"
 	keyTokenURL     string = "NSC_TOKEN_URL"
 	keyClientSecret string = "NSC_CLIENT_SECRET"
 	keyClientID     string = "NSC_CLIENT_ID"
@@ -53,7 +53,7 @@ func DefaultConfig() Config {
 		},
 
 		NSC: NSCConfig{
-			BaseURL:      getEnv(keyNSCBaseURL, ""),
+			SubmitURL:    getEnv(keyNSCSubmitURL, ""),
 			TokenURL:     getEnv(keyTokenURL, ""),
 			ClientSecret: getEnv(keyClientSecret, ""),
 			ClientID:     getEnv(keyClientID, ""),
@@ -90,7 +90,7 @@ func NewConfigFromEnv(options ...func(*Config)) (Config, error) {
 		setFromEnv(&cfg.Redis.Password, "REDIS_PASSWORD"),
 		setFromEnv(&cfg.Redis.DB, "REDIS_DB"),
 
-		setFromEnv(&cfg.NSC.BaseURL, "NSC_BASE_URL"),
+		setFromEnv(&cfg.NSC.SubmitURL, "NSC_SUBMIT_URL"),
 		setFromEnv(&cfg.NSC.TokenURL, "NSC_TOKEN_URL"),
 		setFromEnv(&cfg.NSC.ClientSecret, "NSC_CLIENT_SECRET"),
 		setFromEnv(&cfg.NSC.ClientID, "NSC_CLIENT_ID"),
