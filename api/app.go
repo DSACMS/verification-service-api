@@ -68,7 +68,7 @@ type Config struct {
 
 func New(cfg *Config) (*fiber.App, error) {
 	if cfg.Logger == nil {
-		cfg.Logger = core.NewLogger(cfg)
+		cfg.Logger = core.NewLogger(&cfg.Core)
 	}
 
 	// Scope logger to the API layer (adds component=api to all logs).
@@ -115,7 +115,7 @@ func New(cfg *Config) (*fiber.App, error) {
 		app.Use(verifier.FiberMiddleware())
 	}
 
-	routes.StatusRouter(app, cfg.Core)
+	routes.StatusRouter(app, cfg.Core, logger)
 
 	return app, nil
 }

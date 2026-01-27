@@ -22,6 +22,14 @@ type RedisConfig struct {
 	DB       int
 }
 
+type NSCConfig struct {
+	SubmitURL    string
+	TokenURL     string
+	ClientSecret string
+	ClientID     string
+	AccountID    string
+}
+
 type Config struct {
 	Cognito     CognitoConfig
 	Environment string
@@ -29,5 +37,5 @@ type Config struct {
 	Port        int
 	SkipAuth    bool
 	Redis       RedisConfig
-	
+	NSC         NSCConfig
 }

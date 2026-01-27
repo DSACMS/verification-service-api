@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/DSACMS/verification-service-api/api"
+	"github.com/DSACMS/verification-service-api/api/routes"
 	"github.com/DSACMS/verification-service-api/pkg/core"
 
 	"github.com/gofiber/fiber/v2"
@@ -27,12 +28,10 @@ func main() {
 func run() error {
 	logger := core.NewLogger(nil)
 
-	err := core.LoadEnv()
-	if err != nil {
+	if err := core.LoadEnv(); err != nil {
 		logger.Error(
 			"Failed to load environment",
-			"err",
-			err,
+			"err", err,
 		)
 		return ErrRunFailed
 	}
@@ -41,29 +40,38 @@ func run() error {
 	if err != nil {
 		logger.Error(
 			"Failed to get configuration",
-			"err",
-			err,
+			"err", err,
 		)
 		return ErrRunFailed
 	}
 
+	logger.Info("raw abc123 env", "SKIP_AUTH", os.Getenv("SKIP_AUTH"))
+
+	logger.Info("config loaded",
+		"env", cfg.Environment,
+		"skip_auth", cfg.SkipAuth,
+	)
+
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
+	// bootstrap logger (before otel exists)
 	initLogger := core.NewLogger(&cfg)
+
 	otel, err := core.NewOtelService(ctx, &cfg)
 	if err != nil {
 		initLogger.ErrorContext(
 			ctx,
 			"Otel error",
-			"err",
-			err,
+			"err", err,
 		)
 		return ErrRunFailed
 	}
 	defer otel.Shutdown(ctx, initLogger)
 
-	logger := core.NewLoggerWithOtel(&cfg, otel)
+	// main logger (wired to otel)
+	logger = core.NewLoggerWithOtel(&cfg, otel)
+
 	app, err := api.New(&api.Config{
 		Core:   cfg,
 		Logger: logger,
@@ -73,18 +81,22 @@ func run() error {
 		logger.ErrorContext(
 			ctx,
 			"Error building app",
-			"err",
-			err,
+			"err", err,
 		)
 		return ErrRunFailed
 	}
 
+	routes.RegisterRoutes(app, &cfg)
+
 	if err := runServer(ctx, app, ":8000"); err != nil {
+		// if errors.Is(err, fiber.ErrInternalServerError) {
+		// 	return nil
+		// }
+
 		logger.ErrorContext(
 			ctx,
 			"Server error",
-			"err",
-			err,
+			"err", err,
 		)
 		return ErrRunFailed
 	}
