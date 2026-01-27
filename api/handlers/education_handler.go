@@ -21,33 +21,19 @@ func TestEducationHandler(cfg *core.Config) fiber.Handler {
 		defer cancel()
 
 		reqBody := education.Request{
-			AccountID:        "xxxxxxxx",
-			OrganizationName: "Account Name",
-			CaseReferenceID:  "xxxxxxx",
-			ContactEmail:     "xxxxx@xxx.org",
-			DateOfBirth:      "YYYYMMDD",
-			LastName:         "Doe",
-			FirstName:        "John",
-			SSN:              "xxxxxxxxx",
-			Terms:            "Y",
-			EndClient:        "Account Name",
-			// IdentityDetails: []education.IdentityDetails{
-			// 	{
-			// 		ElementName:  "degreeDetails/degreeTitle",
-			// 		ElementValue: "MASTER OF ENVIRONMENTAL ENGINEERING",
-			// 	},
-			// 	{
-			// 		ElementName:  "degreeDetails/majorCoursesOfStudy/course",
-			// 		ElementValue: "MATH",
-			// 	},
-			// },
+			AccountID:        cfg.NSC.AccountID,
+			OrganizationName: "Lynette",
+			DateOfBirth:      "1988-10-24",
+			LastName:         "Oyola",
+			FirstName:        "Lynette",
+			Terms:            "y",
+			EndClient:        "CMS",
 		}
 
 		result, err := education.TestEducationEndpoint(ctx, cfg, reqBody)
 		if err != nil {
 			log.Printf("education test failed: %v", err)
 
-			// return a safe message, but keep the upstream detail
 			return fiber.NewError(
 				fiber.StatusBadGateway,
 				fmt.Sprintf("education verification failed: %v", err),
