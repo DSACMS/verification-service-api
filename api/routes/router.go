@@ -12,7 +12,6 @@ func RegisterRoutes(app fiber.Router, cfg *core.Config) {
 	})
 
 	api := app.Group("/api")
-	// RegisterRoutes(app, cfg)
 
 	api.Get("/edu", handlers.TestEducationHandler(cfg))
 

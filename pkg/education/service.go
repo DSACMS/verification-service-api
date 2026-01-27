@@ -9,9 +9,9 @@ import (
 	"log"
 	"net/http"
 	"net/url"
+	"strings"
 
 	"github.com/DSACMS/verification-service-api/pkg/core"
-	"github.com/gofiber/fiber/v2"
 )
 
 type OAuthTokenResponse struct {
@@ -48,78 +48,92 @@ func OAuthTokenGenerator(ctx context.Context, cfg *core.NSCConfig) (OAuthTokenRe
 	defer resp.Body.Close()
 
 	raw, _ := io.ReadAll(resp.Body)
-	if resp.StatusCode != fiber.StatusOK {
+	if resp.StatusCode != http.StatusOK {
 		return OAuthTokenResponse{}, fmt.Errorf("token request failed: status=%d body=%s", resp.StatusCode, string(raw))
 	}
 
 	var result OAuthTokenResponse
-	err = json.Unmarshal(raw, &result)
-	if err != nil {
+	if err := json.Unmarshal(raw, &result); err != nil {
 		return OAuthTokenResponse{}, fmt.Errorf("decode token response: %w body=%s", err, string(raw))
+	}
+
+	if result.TokenType == "" {
+		result.TokenType = "Bearer"
 	}
 
 	return result, nil
 }
 
 func TestEducationEndpoint(ctx context.Context, cfg *core.Config, reqBody Request) (Response, error) {
-	// token, err := OAuthTokenGenerator(ctx, &cfg.NSC)
-	// if err != nil {
-	// 	return Response{}, fmt.Errorf("token could not be generated %w", err)
-	// }
-
+	// 1) Get token
 	token, err := OAuthTokenGenerator(ctx, &cfg.NSC)
 	if err != nil {
-		return Response{}, fmt.Errorf("nsc oauth failed: %w", err)
+		return Response{}, fmt.Errorf("nsc oauth failed: %w\n\n", err)
+	}
+	if token.AccessToken == "" {
+		return Response{}, fmt.Errorf("nsc oauth returned empty access token\n\n")
 	}
 
-	log.Printf("token_type=%q expires_in=%d scope=%q access_token_len=%d",
+	log.Printf(
+		"token_type=%q\nexpires_in=%d\nscope=%q\naccess_token_len=%d\n\n",
 		token.TokenType, token.ExpiresIn, token.Scope, len(token.AccessToken),
 	)
 
-	// auth := token.TokenType + " " + token.AccessToken
-	auth := fmt.Sprintf("%s %s", token.TokenType, token.AccessToken)
-
-	url := cfg.NSC.SubmitURL
-
 	body, err := json.Marshal(reqBody)
 	if err != nil {
-		return Response{}, fmt.Errorf("marshal submit body: %w", err)
+		return Response{}, fmt.Errorf("failed to marshal submit body: %w\n\n", err)
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(body))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, cfg.NSC.SubmitURL, bytes.NewReader(body))
 	if err != nil {
-		return Response{}, fmt.Errorf("create submit request: %w", err)
+		return Response{}, fmt.Errorf("failed to create submit request: %w\n\n", err)
 	}
 
-	req.Header.Set("Request-type", "insights")
-	req.Header.Set("Content-Type", "text/plain; charset=utf-8")
+	accToken := strings.TrimSpace(token.AccessToken)
+
+	req.Header.Set("Authorization", "Bearer "+accToken)
+	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Accept", "application/json")
-	req.Header.Set("Authorization", auth)
 
-	log.Printf("token url=%s submit url=%s", cfg.NSC.TokenURL, cfg.NSC.SubmitURL)
+	log.Printf("token url=%s\nsubmit url=%s\n\n", cfg.NSC.TokenURL, cfg.NSC.SubmitURL)
+
 	authHeader := req.Header.Get("Authorization")
-	if len(authHeader) > 20 {
-		authHeader = authHeader[:20] + "..."
+	if len(authHeader) > 24 {
+		authHeader = authHeader[:24] + "..."
 	}
-	log.Printf("auth header=%q", authHeader)
+	log.Printf("auth header=%q host=%q\n\n", authHeader, req.URL.Host)
 
-	log.Printf("NSC submit url=%s content-type=%q", url, req.Header.Get("Content-Type"))
+	client := &http.Client{
+		CheckRedirect: func(r *http.Request, via []*http.Request) error {
+			if len(via) > 0 {
+				r.Header = via[0].Header.Clone()
+			}
+			return nil
+		},
+	}
 
-	resp, err := http.DefaultClient.Do(req)
+	resp, err := client.Do(req)
 	if err != nil {
-		return Response{}, fmt.Errorf("nsc submit request failed: %w", err)
+		return Response{}, fmt.Errorf("failed to submit request: %w\n\n", err)
 	}
-
 	defer resp.Body.Close()
 
 	respBytes, _ := io.ReadAll(resp.Body)
 
-	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		wwwAuth := resp.Header.Get("WWW-Authenticate")
+	if resp.StatusCode >= 300 && resp.StatusCode < 400 {
 		return Response{}, fmt.Errorf(
-			"nsc submit failed: status=%d www-authenticate=%q content-type=%q body=%q",
+			"nsc submit redirected: status=%d\nlocation=%q\nbody=%q\n\n",
 			resp.StatusCode,
-			wwwAuth,
+			resp.Header.Get("Location"),
+			string(respBytes),
+		)
+	}
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		return Response{}, fmt.Errorf(
+			"nsc submit failed: status=%d\nwww-authenticate=%q \ncontent-type=%q\nbody=%q\n\n",
+			resp.StatusCode,
+			resp.Header.Get("WWW-Authenticate"),
 			resp.Header.Get("Content-Type"),
 			string(respBytes),
 		)
@@ -127,8 +141,8 @@ func TestEducationEndpoint(ctx context.Context, cfg *core.Config, reqBody Reques
 
 	var result Response
 	if err := json.Unmarshal(respBytes, &result); err != nil {
-		return Response{}, fmt.Errorf("decode nsc response: %w body=%q", err, string(respBytes))
+		return Response{}, fmt.Errorf("decode nsc response: %w body=%q\n\n", err, string(respBytes))
 	}
-	return result, nil
 
+	return result, nil
 }
