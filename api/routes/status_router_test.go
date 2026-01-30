@@ -9,6 +9,7 @@ import (
 
 	"github.com/DSACMS/verification-service-api/pkg/core"
 	"github.com/gofiber/fiber/v2"
+	"github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -16,15 +17,15 @@ import (
 func TestStatusEndpoint(t *testing.T) {
 	app := fiber.New()
 
-	cfg := core.Config{
-		Redis: core.RedisConfig{
-			Addr: "localhost:6379",
-		},
-	}
+	cfg := core.Config{}
+
+	rdb := redis.NewClient(&redis.Options{
+		Addr: "localhost:6379",
+	})
 
 	logger := slog.New(slog.NewTextHandler(io.Discard, nil))
 
-	StatusRouter(app, cfg, logger)
+	StatusRouter(app, cfg, rdb, logger)
 
 	req := httptest.NewRequest(http.MethodGet, "/status", http.NoBody)
 

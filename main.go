@@ -12,6 +12,7 @@ import (
 	"github.com/DSACMS/verification-service-api/api"
 	"github.com/DSACMS/verification-service-api/api/routes"
 	"github.com/DSACMS/verification-service-api/pkg/core"
+	"github.com/DSACMS/verification-service-api/pkg/redis"
 
 	"github.com/gofiber/fiber/v2"
 )
@@ -28,7 +29,8 @@ func main() {
 func run() error {
 	logger := core.NewLogger(nil)
 
-	if err := core.LoadEnv(); err != nil {
+	err := core.LoadEnv()
+	if err != nil {
 		logger.Error(
 			"Failed to load environment",
 			"err", err,
@@ -55,7 +57,6 @@ func run() error {
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
-	// bootstrap logger (before otel exists)
 	initLogger := core.NewLogger(&cfg)
 
 	otel, err := core.NewOtelService(ctx, &cfg)
@@ -69,7 +70,6 @@ func run() error {
 	}
 	defer otel.Shutdown(ctx, initLogger)
 
-	// main logger (wired to otel)
 	logger = core.NewLoggerWithOtel(&cfg, otel)
 
 	app, err := api.New(&api.Config{
@@ -86,13 +86,29 @@ func run() error {
 		return ErrRunFailed
 	}
 
-	routes.RegisterRoutes(app, &cfg)
+	rdb := redis.NewClient(redis.Config{
+		Addr:     cfg.Redis.Addr,
+		Password: cfg.Redis.Password,
+		DB:       cfg.Redis.DB,
+	}, logger)
 
-	if err := runServer(ctx, app, ":8000"); err != nil {
-		// if errors.Is(err, fiber.ErrInternalServerError) {
-		// 	return nil
-		// }
+	err = redis.Ping(ctx, rdb)
+	if err != nil {
+		logger.ErrorContext(ctx, "redis ping failed", "err", err)
+		_ = rdb.Close()
+		return ErrRunFailed
+	}
 
+	defer func() {
+		if err := rdb.Close(); err != nil {
+			logger.Warn("redis close failed", "err", err)
+		}
+	}()
+
+	routes.RegisterRoutes(app, &cfg, rdb, logger)
+
+	err = runServer(ctx, app, ":8000")
+	if err != nil {
 		logger.ErrorContext(
 			ctx,
 			"Server error",
@@ -117,7 +133,8 @@ func runServer(ctx context.Context, app *fiber.App, addr string) error {
 	case <-ctx.Done():
 	}
 
-	if err := app.ShutdownWithTimeout(5 * time.Second); err != nil {
+	err := app.ShutdownWithTimeout(5 * time.Second)
+	if err != nil {
 		return fmt.Errorf("error during shutdown: %w", err)
 	}
 
