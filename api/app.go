@@ -17,6 +17,8 @@ import (
 	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/gofiber/fiber/v2/middleware/recover"
 	slogfiber "github.com/samber/slog-fiber"
+
+	"github.com/redis/go-redis/v9"
 )
 
 func errorHandler(logger *slog.Logger, otel core.OtelService) fiber.ErrorHandler {
@@ -52,10 +54,8 @@ func stackTraceHandler(logger *slog.Logger) func(*fiber.Ctx, any) {
 		logger.ErrorContext(
 			c.Context(),
 			"panic!",
-			"stack",
-			stack,
-			"err",
-			e,
+			"stack", stack,
+			"err", e,
 		)
 	}
 }
@@ -64,6 +64,8 @@ type Config struct {
 	Otel   core.OtelService
 	Logger *slog.Logger
 	Core   core.Config
+
+	Redis *redis.Client
 }
 
 func New(cfg *Config) (*fiber.App, error) {
@@ -71,7 +73,6 @@ func New(cfg *Config) (*fiber.App, error) {
 		cfg.Logger = core.NewLogger(&cfg.Core)
 	}
 
-	// Scope logger to the API layer (adds component=api to all logs).
 	logger := cfg.Logger.With(slog.String("component", "api"))
 
 	fiberConfig := fiber.Config{
@@ -81,7 +82,6 @@ func New(cfg *Config) (*fiber.App, error) {
 	app := fiber.New(fiberConfig)
 
 	app.Use(recover.New(recover.Config{
-		Next:              nil,
 		EnableStackTrace:  true,
 		StackTraceHandler: stackTraceHandler(cfg.Logger),
 	}))
@@ -115,7 +115,7 @@ func New(cfg *Config) (*fiber.App, error) {
 		app.Use(verifier.FiberMiddleware())
 	}
 
-	routes.StatusRouter(app, cfg.Core, logger)
+	routes.StatusRouter(app, cfg.Core, cfg.Redis, logger)
 
 	return app, nil
 }

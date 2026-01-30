@@ -3,7 +3,7 @@ package handlers
 import (
 	"context"
 	"fmt"
-	"log"
+	"log/slog"
 	"time"
 
 	"github.com/DSACMS/verification-service-api/pkg/core"
@@ -11,10 +11,13 @@ import (
 	"github.com/gofiber/fiber/v2"
 )
 
-func TestEducationHandler(cfg *core.Config) fiber.Handler {
-	const (
-		contextTimeout time.Duration = 5 * time.Second
-	)
+func TestEducationHandler(cfg *core.Config, edu education.EducationService, logger *slog.Logger) fiber.Handler {
+	const contextTimeout time.Duration = 5 * time.Second
+
+	if logger == nil {
+		logger = slog.Default()
+	}
+	logger = logger.With(slog.String("handler", "TestEducationHandler"))
 
 	return func(c *fiber.Ctx) error {
 		ctx, cancel := context.WithTimeout(c.Context(), contextTimeout)
@@ -30,10 +33,9 @@ func TestEducationHandler(cfg *core.Config) fiber.Handler {
 			EndClient:        "CMS",
 		}
 
-		result, err := education.TestEducationEndpoint(ctx, cfg, reqBody)
+		result, err := edu.Submit(ctx, reqBody)
 		if err != nil {
-			log.Printf("education test failed: %v", err)
-
+			logger.ErrorContext(ctx, "education verification failed", slog.Any("error", err))
 			return fiber.NewError(
 				fiber.StatusBadGateway,
 				fmt.Sprintf("education verification failed: %v", err),
@@ -42,5 +44,4 @@ func TestEducationHandler(cfg *core.Config) fiber.Handler {
 
 		return c.Status(fiber.StatusOK).JSON(result)
 	}
-
 }
