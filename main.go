@@ -10,7 +10,9 @@ import (
 	"time"
 
 	"github.com/DSACMS/verification-service-api/api"
+	"github.com/DSACMS/verification-service-api/api/routes"
 	"github.com/DSACMS/verification-service-api/pkg/core"
+	"github.com/DSACMS/verification-service-api/pkg/redis"
 
 	"github.com/gofiber/fiber/v2"
 )
@@ -31,8 +33,7 @@ func run() error {
 	if err != nil {
 		logger.Error(
 			"Failed to load environment",
-			"err",
-			err,
+			"err", err,
 		)
 		return ErrRunFailed
 	}
@@ -41,29 +42,36 @@ func run() error {
 	if err != nil {
 		logger.Error(
 			"Failed to get configuration",
-			"err",
-			err,
+			"err", err,
 		)
 		return ErrRunFailed
 	}
+
+	logger.Info("raw abc123 env", "SKIP_AUTH", os.Getenv("SKIP_AUTH"))
+
+	logger.Info("config loaded",
+		"env", cfg.Environment,
+		"skip_auth", cfg.SkipAuth,
+	)
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
 	defer stop()
 
 	initLogger := core.NewLogger(&cfg)
+
 	otel, err := core.NewOtelService(ctx, &cfg)
 	if err != nil {
 		initLogger.ErrorContext(
 			ctx,
 			"Otel error",
-			"err",
-			err,
+			"err", err,
 		)
 		return ErrRunFailed
 	}
 	defer otel.Shutdown(ctx, initLogger)
 
-	logger := core.NewLoggerWithOtel(&cfg, otel)
+	logger = core.NewLoggerWithOtel(&cfg, otel)
+
 	app, err := api.New(&api.Config{
 		Core:   cfg,
 		Logger: logger,
@@ -73,18 +81,38 @@ func run() error {
 		logger.ErrorContext(
 			ctx,
 			"Error building app",
-			"err",
-			err,
+			"err", err,
 		)
 		return ErrRunFailed
 	}
 
-	if err := runServer(ctx, app, ":8000"); err != nil {
+	rdb := redis.NewClient(redis.Config{
+		Addr:     cfg.Redis.Addr,
+		Password: cfg.Redis.Password,
+		DB:       cfg.Redis.DB,
+	}, logger)
+
+	err = redis.Ping(ctx, rdb)
+	if err != nil {
+		logger.ErrorContext(ctx, "redis ping failed", "err", err)
+		_ = rdb.Close()
+		return ErrRunFailed
+	}
+
+	defer func() {
+		if err := rdb.Close(); err != nil {
+			logger.Warn("redis close failed", "err", err)
+		}
+	}()
+
+	routes.RegisterRoutes(app, &cfg, rdb, logger)
+
+	err = runServer(ctx, app, ":8000")
+	if err != nil {
 		logger.ErrorContext(
 			ctx,
 			"Server error",
-			"err",
-			err,
+			"err", err,
 		)
 		return ErrRunFailed
 	}
@@ -105,7 +133,8 @@ func runServer(ctx context.Context, app *fiber.App, addr string) error {
 	case <-ctx.Done():
 	}
 
-	if err := app.ShutdownWithTimeout(5 * time.Second); err != nil {
+	err := app.ShutdownWithTimeout(5 * time.Second)
+	if err != nil {
 		return fmt.Errorf("error during shutdown: %w", err)
 	}
 

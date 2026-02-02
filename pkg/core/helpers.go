@@ -54,5 +54,9 @@ func getEnv(key, fallback string) string {
 }
 
 func (c *Config) IsProd() bool {
-	return c.Environment == "production"
+	if c == nil || c.Environment != "production" {
+		return false
+	}
+
+	return true
 }

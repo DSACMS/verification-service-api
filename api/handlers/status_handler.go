@@ -13,8 +13,6 @@ const (
 	contextTimeout = 2
 )
 
-// Build a handler that returns a 2** status when the service is
-// running properly
 func GetRDBStatus(rdb *goredis.Client) fiber.Handler {
 	return func(c *fiber.Ctx) error {
 		ctx, cancel := context.WithTimeout(c.Context(), contextTimeout*time.Second)
