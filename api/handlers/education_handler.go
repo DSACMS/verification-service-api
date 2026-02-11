@@ -12,7 +12,7 @@ import (
 )
 
 func EducationHandler(cfg *core.Config, edu education.EducationService, logger *slog.Logger) fiber.Handler {
-	const contextTimeout time.Duration = 5 * time.Second
+	const eduContextTimeout time.Duration = 5 * time.Second
 
 	if logger == nil {
 		logger = slog.Default()
@@ -20,7 +20,7 @@ func EducationHandler(cfg *core.Config, edu education.EducationService, logger *
 	logger = logger.With(slog.String("handler", "TestEducationHandler"))
 
 	return func(c *fiber.Ctx) error {
-		ctx, cancel := context.WithTimeout(c.Context(), contextTimeout)
+		ctx, cancel := context.WithTimeout(c.Context(), eduContextTimeout)
 		defer cancel()
 
 		reqBody := education.Request{
