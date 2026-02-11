@@ -32,7 +32,12 @@ import (
 //	export SERVICE_VERSION=$(git rev-parse --short HEAD)
 //	go build -o out \
 //	  -X verification-service-api/pkg/core.ServiceVersion=${SERVICE_VERSION}
+
 var ServiceVersion = "UNSET"
+
+const (
+	contextTimeout time.Duration = 5 * time.Second
+)
 
 // OtelService provides methods for handling OpenTelemetry operations.
 type OtelService interface {
@@ -74,7 +79,7 @@ func (otelService) SpanFromContext(c context.Context) trace.Span {
 }
 
 func (s otelService) Shutdown(c context.Context, logger *slog.Logger) {
-	shutdownCtx, cancel := context.WithTimeout(c, 5*time.Second)
+	shutdownCtx, cancel := context.WithTimeout(c, contextTimeout)
 	defer cancel()
 
 	err := s.shutdown(shutdownCtx)

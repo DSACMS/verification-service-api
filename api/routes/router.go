@@ -2,12 +2,14 @@ package routes
 
 import (
 	"log/slog"
+	"net/http"
 
 	"github.com/DSACMS/verification-service-api/api/handlers"
 	"github.com/DSACMS/verification-service-api/api/middleware"
 	"github.com/DSACMS/verification-service-api/pkg/circuitbreaker"
 	"github.com/DSACMS/verification-service-api/pkg/core"
 	"github.com/DSACMS/verification-service-api/pkg/education"
+	"github.com/DSACMS/verification-service-api/pkg/veterans"
 	"github.com/gofiber/fiber/v2"
 	"github.com/redis/go-redis/v9"
 )
@@ -27,7 +29,12 @@ func RegisterRoutes(app fiber.Router, cfg *core.Config, rdb *redis.Client, logge
 		Logger: logger,
 	})
 
-	// One breaker per endpoint
+	vetSvc, err := veterans.New(&cfg.VA, http.DefaultClient)
+	if err != nil {
+		logger.Error("failed to init veterans service", slog.Any("err", err))
+		panic(err)
+	}
+
 	withCB := middleware.WithCircuitBreaker(func(name string) *circuitbreaker.RedisBreaker {
 		return circuitbreaker.NewRedisBreaker(
 			rdb,
@@ -37,5 +44,10 @@ func RegisterRoutes(app fiber.Router, cfg *core.Config, rdb *redis.Client, logge
 		)
 	})
 
-	api.Get("/edu", withCB(handlers.TestEducationHandler(cfg, edu, logger)))
+	api.Get("/edu", withCB(handlers.EducationHandler(cfg, edu, logger)))
+
+	api.Get(
+		"/va/token",
+		withCB(handlers.VeteranAffairsHandler(&cfg.VA, vetSvc, logger)),
+	)
 }

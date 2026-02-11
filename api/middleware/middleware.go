@@ -14,6 +14,10 @@ import (
 	"github.com/lestrrat-go/jwx/v2/jwt"
 )
 
+const (
+	contextTimeout time.Duration = 5 * time.Second
+)
+
 type CognitoConfig struct {
 	Region     string
 	UserPoolID string
@@ -78,7 +82,7 @@ func NewCognitoVerifierWithURLs(cfg CognitoConfig, issuer, jwksURL string) (*Cog
 		issuer:  issuer,
 		jwksURL: jwksURL,
 		cache:   cache,
-		client:  &http.Client{Timeout: 5 * time.Second},
+		client:  &http.Client{Timeout: contextTimeout},
 		cfg:     cfg,
 	}, nil
 }
@@ -90,7 +94,7 @@ func (v *CognitoVerifier) FiberMiddleware() fiber.Handler {
 			return fiber.ErrUnauthorized
 		}
 
-		ctx, cancel := context.WithTimeout(c.Context(), 5*time.Second)
+		ctx, cancel := context.WithTimeout(c.Context(), contextTimeout)
 		defer cancel()
 
 		keyset, err := v.cache.Get(ctx, v.jwksURL)

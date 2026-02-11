@@ -1,5 +1,16 @@
 package core
 
+type Config struct {
+	Cognito     CognitoConfig
+	Environment string
+	Otel        OtelConfig
+	Port        int
+	SkipAuth    bool
+	Redis       RedisConfig
+	NSC         NSCConfig
+	VA          VeteranAffairsConfig
+}
+
 type OtlpConfig struct {
 	Endpoint string
 	Insecure bool
@@ -30,12 +41,11 @@ type NSCConfig struct {
 	AccountID    string
 }
 
-type Config struct {
-	Cognito     CognitoConfig
-	Environment string
-	Otel        OtelConfig
-	Port        int
-	SkipAuth    bool
-	Redis       RedisConfig
-	NSC         NSCConfig
+type VeteranAffairsConfig struct {
+	ClientID          string
+	PrivateKeyPath    string
+	TokenRecipientURL string
+	TokenURL          string
+	SandboxKey        string
+	SandboxRequestID   string
 }
