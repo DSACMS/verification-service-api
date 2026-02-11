@@ -24,6 +24,13 @@ const (
 	keyClientSecret string = "NSC_CLIENT_SECRET"
 	keyClientID     string = "NSC_CLIENT_ID"
 	keyAccountID    string = "NSC_ACCOUNT_ID"
+
+	keyVAClientID          string = "VA_OAUTH_CLIENT_ID"
+	keyVAPrivateKeyPath    string = "../../private.pem"
+	keyVATokenRecipientURL string = "VA_OAUTH_OKTA_AUDIENCE_URL"
+	keyVATokenURL          string = "VA_OAUTH_TOKEN_URL"
+	keyVASandboxKey        string = "VA_SANDBOX_KEY"
+	keyVASandboxRequestID  string = "VA_SANDBOX_REQUEST_ID"
 )
 
 func DefaultConfig() Config {
@@ -58,6 +65,15 @@ func DefaultConfig() Config {
 			ClientSecret: getEnv(keyClientSecret, ""),
 			ClientID:     getEnv(keyClientID, ""),
 			AccountID:    getEnv(keyAccountID, ""),
+		},
+
+		VA: VeteranAffairsConfig{
+			ClientID:          getEnv(keyVAClientID, ""),
+			TokenRecipientURL: getEnv(keyVATokenRecipientURL, ""),
+			TokenURL:          getEnv(keyVATokenURL, ""),
+			PrivateKeyPath:    getEnv(keyVAPrivateKeyPath, "../../private.pem"),
+			SandboxKey:        getEnv(keyVASandboxKey, ""),
+			SandboxRequestID:  getEnv(keyVASandboxRequestID, ""),
 		},
 	}
 }
@@ -95,6 +111,13 @@ func NewConfigFromEnv(options ...func(*Config)) (Config, error) {
 		setFromEnv(&cfg.NSC.ClientSecret, "NSC_CLIENT_SECRET"),
 		setFromEnv(&cfg.NSC.ClientID, "NSC_CLIENT_ID"),
 		setFromEnv(&cfg.NSC.AccountID, "NSC_ACCOUNT_ID"),
+
+		setFromEnv(&cfg.VA.ClientID, "VA_OAUTH_CLIENT_ID"),
+		setFromEnv(&cfg.VA.TokenRecipientURL, "VA_OAUTH_OKTA_AUDIENCE_URL"),
+		setFromEnv(&cfg.VA.TokenURL, "VA_OAUTH_TOKEN_URL"),
+		setFromEnv(&cfg.VA.PrivateKeyPath, "VA_OAUTH_PRIVATE_KEY_PATH"),
+		setFromEnv(&cfg.VA.SandboxKey, "VA_SANDBOX_KEY"),
+		setFromEnv(&cfg.VA.SandboxRequestID, "VA_SANDBOX_REQUEST_ID"),
 	)
 
 	for _, opt := range options {
