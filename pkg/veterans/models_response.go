@@ -1,5 +1,11 @@
 package veterans
 
+type TokenResponse struct {
+	TokenType string `json:"token_type"`
+	Scope     string `json:"scope"`
+	ExpiresIn int    `json:"expires_in"`
+}
+
 // 200 Status Code - Disability Rating retrieved successfully
 type DisabilityRatingResponse_200 struct {
 	Data Data_200 `json:"data"`

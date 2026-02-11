@@ -28,7 +28,6 @@ const (
 type VeteransService interface {
 	Submit(ctx context.Context, req DisabilityRatingRequest) (DisabilityRatingResponse_200, error)
 
-	// If you want this publicly exposed on the interface:
 	GetAccessToken(ctx context.Context, icn string, scopes []string) (*AccessToken, error)
 }
 
@@ -63,9 +62,7 @@ func New(cfg *core.VeteranAffairsConfig, client HTTPTransport) (VeteransService,
 	return &service{cfg: cfg, client: client}, nil
 }
 
-// GetAccessToken returns an OAuth access token using VA CCG.
-// icn is used to build the required "launch" param (base64 JSON {"patient":"<ICN>"}).
-// scopes is space-delimited in the request body.
+// Returns an OAuth access token using VA CCG.
 func (s *service) GetAccessToken(ctx context.Context, icn string, scopes []string) (*AccessToken, error) {
 	if icn == "" {
 		return nil, errors.New("icn required")
@@ -77,7 +74,6 @@ func (s *service) GetAccessToken(ctx context.Context, icn string, scopes []strin
 		return nil, errors.New("missing config")
 	}
 
-	// Reuse cached token if it’s still valid (minus small skew).
 	if tok := s.getCachedTokenIfValid(); tok != nil {
 		return tok, nil
 	}
@@ -85,7 +81,7 @@ func (s *service) GetAccessToken(ctx context.Context, icn string, scopes []strin
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	// Double-check after acquiring lock (avoid thundering herd).
+	// Double-check after getting lock
 	if s.cachedToken != nil && time.Now().UTC().Before(s.tokenExpAt.Add(-tokenReuseSkewSeconds*time.Second)) {
 		return s.cachedToken, nil
 	}
@@ -93,7 +89,6 @@ func (s *service) GetAccessToken(ctx context.Context, icn string, scopes []strin
 	ctx, cancel := context.WithTimeout(ctx, contextTimeout)
 	defer cancel()
 
-	// Build signed client assertion JWT (RS256) using your existing function.
 	assertion, err := BuildClientAssertion(
 		s.cfg.ClientID,
 		s.cfg.PrivateKeyPath,
@@ -136,14 +131,15 @@ func (s *service) GetAccessToken(ctx context.Context, icn string, scopes []strin
 	}
 
 	var out AccessToken
-	if err := json.Unmarshal(body, &out); err != nil {
+	err = json.Unmarshal(body, &out)
+	if err != nil {
 		return nil, err
 	}
+
 	if out.AccessToken == "" {
 		return nil, errors.New("va token response missing access_token")
 	}
 
-	// Cache with computed expiry.
 	s.cachedToken = &out
 	s.tokenExpAt = time.Now().UTC().Add(time.Duration(out.ExpiresIn) * time.Second)
 

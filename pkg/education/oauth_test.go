@@ -18,7 +18,6 @@ func TestNSCHTTPClient_PreservesAuthOnRedirect(t *testing.T) {
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 
-		// OAuth token endpoint
 		case "/token":
 			w.Header().Set("Content-Type", "application/json")
 			_ = json.NewEncoder(w).Encode(map[string]any{
@@ -27,11 +26,9 @@ func TestNSCHTTPClient_PreservesAuthOnRedirect(t *testing.T) {
 				"expires_in":   3600,
 			})
 
-		// first submit then redirect
 		case "/submit":
 			http.Redirect(w, r, "/final", http.StatusFound)
 
-		// redirect location
 		case "/final":
 			seenAuth = r.Header.Get("Authorization")
 			w.WriteHeader(http.StatusOK)
