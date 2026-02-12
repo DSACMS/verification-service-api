@@ -3,6 +3,7 @@ package routes
 import (
 	"log/slog"
 	"net/http"
+	"time"
 
 	"github.com/DSACMS/verification-service-api/api/handlers"
 	"github.com/DSACMS/verification-service-api/api/middleware"
@@ -29,7 +30,11 @@ func RegisterRoutes(app fiber.Router, cfg *core.Config, rdb *redis.Client, logge
 		Logger: logger,
 	})
 
-	vetSvc, err := veterans.New(&cfg.VA, http.DefaultClient)
+	vetSvc, err := veterans.New(&cfg.VA, veterans.Options{
+		Logger:     logger,
+		HTTPClient: http.DefaultClient,
+		Timeout:    10 * time.Second,
+	})
 	if err != nil {
 		logger.Error("failed to init veterans service", slog.Any("err", err))
 		panic(err)
