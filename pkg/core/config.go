@@ -27,7 +27,7 @@ const (
 
 	keyVAClientID          string = "VA_OAUTH_CLIENT_ID"
 	keyVAPrivateKeyPath    string = "../../private.pem"
-	keyVATokenRecipientURL string = "VA_OAUTH_OKTA_AUDIENCE_URL"
+	keyVATokenRecipientURL string = "VA_TOKEN_RECIPIENT_URL"
 	keyVATokenURL          string = "VA_OAUTH_TOKEN_URL"
 	keyVASandboxKey        string = "VA_SANDBOX_KEY"
 	keyVASandboxRequestID  string = "VA_SANDBOX_REQUEST_ID"

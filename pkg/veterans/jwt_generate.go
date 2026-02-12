@@ -62,7 +62,6 @@ func BuildClientAssertion(clientID, privateKeyPath, audience string) (string, er
 	return signed, nil
 }
 
-// If you prefer explicit rsa parsing (same thing under the hood):
 func parseRSAPrivateKey(pemBytes []byte) (*rsa.PrivateKey, error) {
 	return jwt.ParseRSAPrivateKeyFromPEM(pemBytes)
 }
