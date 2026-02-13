@@ -11,8 +11,8 @@ import (
 	"github.com/gofiber/fiber/v2"
 )
 
-func TestEducationHandler(cfg *core.Config, edu education.EducationService, logger *slog.Logger) fiber.Handler {
-	const contextTimeout time.Duration = 5 * time.Second
+func EducationHandler(cfg *core.Config, edu education.EducationService, logger *slog.Logger) fiber.Handler {
+	const eduContextTimeout time.Duration = 5 * time.Second
 
 	if logger == nil {
 		logger = slog.Default()
@@ -20,7 +20,7 @@ func TestEducationHandler(cfg *core.Config, edu education.EducationService, logg
 	logger = logger.With(slog.String("handler", "TestEducationHandler"))
 
 	return func(c *fiber.Ctx) error {
-		ctx, cancel := context.WithTimeout(c.Context(), contextTimeout)
+		ctx, cancel := context.WithTimeout(c.Context(), eduContextTimeout)
 		defer cancel()
 
 		reqBody := education.Request{

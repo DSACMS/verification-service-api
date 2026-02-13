@@ -47,7 +47,6 @@ func newTestRedisClient(t *testing.T) *redis.Client {
 		MinIdleConns: redisMinIdleConns,
 	})
 
-	// Fail fast with a clear error if Redis isn't running
 	ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
 	defer cancel()
 	require.NoError(t, rdb.Ping(ctx).Err(), "Redis must be running at %s for these tests", redisClientAddr)
