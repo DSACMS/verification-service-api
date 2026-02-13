@@ -48,12 +48,10 @@ func BuildClientAssertion(clientID, privateKeyPath, audience string) (string, er
 		"sub": clientID,
 		"iat": iat,
 		"exp": exp,
-		"jti": uuid.NewString(), // string
+		"jti": uuid.NewString(),
 	}
 
 	tok := jwt.NewWithClaims(jwt.SigningMethodRS256, claims)
-
-
 
 	signed, err := tok.SignedString(privateKey)
 	if err != nil {

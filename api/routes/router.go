@@ -15,6 +15,10 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
+const (
+	timeout time.Duration = 10 * time.Second
+)
+
 func RegisterRoutes(app fiber.Router, cfg *core.Config, rdb *redis.Client, logger *slog.Logger) {
 	if logger == nil {
 		logger = slog.Default()
@@ -27,13 +31,15 @@ func RegisterRoutes(app fiber.Router, cfg *core.Config, rdb *redis.Client, logge
 	api := app.Group("/api")
 
 	edu := education.New(&cfg.NSC, education.Options{
-		Logger: logger,
+		Logger:     logger,
+		HTTPClient: http.DefaultClient,
+		Timeout:    timeout,
 	})
 
 	vetSvc, err := veterans.New(&cfg.VA, veterans.Options{
 		Logger:     logger,
 		HTTPClient: http.DefaultClient,
-		Timeout:    10 * time.Second,
+		Timeout:    timeout,
 	})
 	if err != nil {
 		logger.Error("failed to init veterans service", slog.Any("err", err))

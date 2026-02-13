@@ -33,7 +33,8 @@ func writeTempPEMKey(t *testing.T) string {
 	if err != nil {
 		t.Fatalf("create temp pem: %v", err)
 	}
-	if err := pem.Encode(f, block); err != nil {
+	err = pem.Encode(f, block)
+	if err != nil {
 		t.Fatalf("encode pem: %v", err)
 	}
 	_ = f.Close()
@@ -43,7 +44,6 @@ func writeTempPEMKey(t *testing.T) string {
 func TestGetAccessToken_HappyPath_AndCaching(t *testing.T) {
 	var hits int32
 
-	// Fake VA token endpoint
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		atomic.AddInt32(&hits, 1)
 
@@ -63,7 +63,7 @@ func TestGetAccessToken_HappyPath_AndCaching(t *testing.T) {
 			t.Fatalf("parse form: %v", err)
 		}
 
-		// required params
+		// passing in required params
 		if form.Get("grant_type") != "client_credentials" {
 			t.Fatalf("grant_type mismatch: %q", form.Get("grant_type"))
 		}
@@ -107,7 +107,7 @@ func TestGetAccessToken_HappyPath_AndCaching(t *testing.T) {
 	ctx := context.Background()
 	scopes := []string{"disability-rating.read", "something.else"}
 
-	// Call #1 should hit server
+	// should hit server
 	tok1, err := svc.GetAccessToken(ctx, "1000720100V271387", scopes)
 	if err != nil {
 		t.Fatalf("GetAccessToken #1: %v", err)
@@ -116,7 +116,7 @@ func TestGetAccessToken_HappyPath_AndCaching(t *testing.T) {
 		t.Fatalf("unexpected token: %q", tok1.AccessToken)
 	}
 
-	// Call #2 should use cache (no new HTTP hit)
+	// should use cache without hitting server
 	tok2, err := svc.GetAccessToken(ctx, "1000720100V271387", scopes)
 	if err != nil {
 		t.Fatalf("GetAccessToken #2: %v", err)
@@ -125,7 +125,8 @@ func TestGetAccessToken_HappyPath_AndCaching(t *testing.T) {
 		t.Fatalf("unexpected token #2: %q", tok2.AccessToken)
 	}
 
-	if got := atomic.LoadInt32(&hits); got != 1 {
+	got := atomic.LoadInt32(&hits)
+	if got != 1 {
 		t.Fatalf("expected 1 HTTP hit due to caching, got %d", got)
 	}
 }
