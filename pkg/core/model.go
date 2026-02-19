@@ -42,10 +42,11 @@ type NSCConfig struct {
 }
 
 type VeteranAffairsConfig struct {
-	ClientID          string
-	PrivateKeyPath    string
-	TokenRecipientURL string
-	TokenURL          string
-	SandboxKey        string
-	SandboxRequestID   string
+	DisabilityRatingURL string
+	ClientID            string
+	PrivateKeyPath      string
+	TokenRecipientURL   string
+	TokenURL            string
+	SandboxKey          string
+	SandboxRequestID    string
 }

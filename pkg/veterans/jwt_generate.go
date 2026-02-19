@@ -12,7 +12,7 @@ import (
 
 // BuildClientAssertion builds and signs the JWT used as client_assertion.
 //
-// clientID: the VA-issued client id \n
+// clientID: the VA-issued client id
 //
 // privateKeyPath: path to private.pem
 //

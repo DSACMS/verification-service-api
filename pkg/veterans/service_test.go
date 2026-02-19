@@ -108,7 +108,7 @@ func TestGetAccessToken_HappyPath_AndCaching(t *testing.T) {
 	scopes := []string{"disability-rating.read", "something.else"}
 
 	// should hit server
-	tok1, err := svc.GetAccessToken(ctx, "1000720100V271387", scopes)
+	tok1, err := svc.GetAccessToken(ctx, scopes)
 	if err != nil {
 		t.Fatalf("GetAccessToken #1: %v", err)
 	}
@@ -117,7 +117,7 @@ func TestGetAccessToken_HappyPath_AndCaching(t *testing.T) {
 	}
 
 	// should use cache without hitting server
-	tok2, err := svc.GetAccessToken(ctx, "1000720100V271387", scopes)
+	tok2, err := svc.GetAccessToken(ctx, scopes)
 	if err != nil {
 		t.Fatalf("GetAccessToken #2: %v", err)
 	}
