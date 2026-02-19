@@ -1,6 +1,7 @@
 package veterans
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -17,17 +18,24 @@ import (
 )
 
 const (
-	grantType           = "client_credentials"
-	clientAssertionType = "urn:ietf:params:oauth:client-assertion-type:jwt-bearer"
-	contentTypeForm     = "application/x-www-form-urlencoded"
-	acceptJSON          = "application/json"
+	grantType           string = "client_credentials"
+	clientAssertionType string = "urn:ietf:params:oauth:client-assertion-type:jwt-bearer"
+	contentTypeForm     string = "application/x-www-form-urlencoded"
+	applicationJSON     string = "application/json"
 
-	tokenReuseSkewSeconds = 30 // refresh a bit early
+	tokenReuseSkewSeconds = 30 * time.Second
+
+	authHeader = "Authorization"
 )
 
+var DefaultTokenScopes = []string{
+	"launch",
+	"veteran_status.read",
+}
+
 type VeteransService interface {
-	Submit(ctx context.Context, req DisabilityRatingRequest) (DisabilityRatingResponse_200, error)
-	GetAccessToken(ctx context.Context, icn string, scopes []string) (*AccessToken, error)
+	GetAccessToken(ctx context.Context, scopes []string) (*AccessToken, error)
+	Submit(ctx context.Context, icn string, req DisabilityRatingRequest) (DisabilityRatingResponse, error)
 }
 
 type HTTPTransport interface {
@@ -107,10 +115,7 @@ func New(cfg *core.VeteranAffairsConfig, opts Options) (VeteransService, error) 
 }
 
 // GetAccessToken returns an OAuth access token using VA CCG.
-func (s *service) GetAccessToken(ctx context.Context, icn string, scopes []string) (*AccessToken, error) {
-	if icn == "" {
-		return nil, errors.New("icn required")
-	}
+func (s *service) GetAccessToken(ctx context.Context, scopes []string) (*AccessToken, error) {
 	if len(scopes) == 0 {
 		return nil, errors.New("scopes can't be empty")
 	}
@@ -120,10 +125,7 @@ func (s *service) GetAccessToken(ctx context.Context, icn string, scopes []strin
 
 	tok := s.getCachedTokenIfValid()
 	if tok != nil {
-		s.logger.Debug("VA TOKEN EXCHANGE (CACHE HIT)",
-			slog.String("component", "veterans"),
-			slog.String("flow", "oauth_ccg"),
-		)
+		s.logger.Debug("VA TOKEN EXCHANGE (CACHE HIT)", slog.String("flow", "oauth_ccg"))
 		return tok, nil
 	}
 
@@ -137,50 +139,14 @@ func (s *service) GetAccessToken(ctx context.Context, icn string, scopes []strin
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	if s.cachedToken != nil && time.Now().UTC().Before(s.tokenExpAt.Add(-tokenReuseSkewSeconds*time.Second)) {
-		s.logger.Debug("VA TOKEN EXCHANGE (CACHE HIT POST-LOCK)",
-			slog.String("component", "veterans"),
-			slog.String("flow", "oauth_ccg"),
-		)
+	if s.cachedToken != nil && time.Now().UTC().Before(s.tokenExpAt.Add(-tokenReuseSkewSeconds)) {
+		s.logger.Debug("VA TOKEN EXCHANGE (CACHE HIT POST-LOCK)", slog.String("flow", "oauth_ccg"))
 		return s.cachedToken, nil
 	}
 
-	s.logger.Debug("VA TOKEN EXCHANGE START",
-		slog.String("component", "veterans"),
-		slog.String("flow", "oauth_ccg"),
-	)
-
-	assertion, err := BuildClientAssertion(
-		s.cfg.ClientID,
-		s.cfg.PrivateKeyPath,
-		s.cfg.TokenRecipientURL,
-	)
+	assertion, err := BuildClientAssertion(s.cfg.ClientID, s.cfg.PrivateKeyPath, s.cfg.TokenRecipientURL)
 	if err != nil {
-		s.logger.Error("VA assertion build failed",
-			slog.String("component", "veterans"),
-			slog.Any("error", err),
-		)
-		return nil, err
-	}
-
-	audHost := ""
-	u, parseErr := url.Parse(s.cfg.TokenRecipientURL)
-	if parseErr == nil && u != nil {
-		audHost = u.Host
-	}
-
-	s.logger.Debug("VA assertion built",
-		slog.Int("assertion_len", len(assertion)),
-		slog.String("aud_host", audHost),
-		slog.Int("scopes_count", len(scopes)),
-	)
-
-	launch, err := BuildLaunchParam(icn)
-	if err != nil {
-		s.logger.Error("VA launch param build failed",
-			slog.String("component", "veterans"),
-			slog.Any("error", err),
-		)
+		s.logger.Error("VA assertion build failed", slog.Any("error", err))
 		return nil, err
 	}
 
@@ -189,108 +155,54 @@ func (s *service) GetAccessToken(ctx context.Context, icn string, scopes []strin
 	form.Set("client_assertion_type", clientAssertionType)
 	form.Set("client_assertion", assertion)
 	form.Set("scope", strings.Join(scopes, " "))
-	form.Set("launch", launch)
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, s.cfg.TokenURL, strings.NewReader(form.Encode()))
 	if err != nil {
-		s.logger.Error("VA token request build failed",
-			slog.String("component", "veterans"),
-			slog.Any("error", err),
-		)
+		s.logger.Error("VA token request build failed", slog.Any("error", err))
 		return nil, err
 	}
-	req.Header.Set("Accept", acceptJSON)
+	req.Header.Set("Accept", applicationJSON)
 	req.Header.Set("Content-Type", contentTypeForm)
-
-	log := s.logger.With(
-		slog.String("component", "veterans"),
-		slog.String("operation", "va_token"),
-		slog.String("method", req.Method),
-		slog.String("host", req.URL.Host),
-		slog.String("path", req.URL.Path),
-	)
-
-	log.Debug("VA token HTTP request start")
 
 	start := time.Now()
 	resp, err := s.client.Do(req)
 	latency := time.Since(start)
 
 	if err != nil {
-		log.Error("VA token request failed",
-			slog.Any("error", err),
-			slog.Duration("latency", latency),
-		)
+		s.logger.Error("VA token request failed", slog.Any("error", err), slog.Duration("latency", latency))
 		return nil, err
 	}
 	defer resp.Body.Close()
 
 	body, _ := io.ReadAll(resp.Body)
 
-	log.Info("VA token response received",
-		slog.Int("status", resp.StatusCode),
-		slog.String("content_type", resp.Header.Get("Content-Type")),
-		slog.Duration("latency", latency),
-	)
-
-	// non 200 status codes
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
 		respBody := strings.TrimSpace(string(body))
-		// prevent overly long log with limit and ellipsis
 		if len(respBody) > 800 {
 			respBody = respBody[:800] + "..."
 		}
-
-		log.Error("VA token non-2xx",
+		s.logger.Error("VA token non-2xx",
 			slog.Int("status", resp.StatusCode),
 			slog.String("www_authenticate", resp.Header.Get("WWW-Authenticate")),
 			slog.String("body_response", respBody),
+			slog.Duration("latency", latency),
 		)
-
-		s.logger.Debug("VA token exhange failed",
-			slog.String("component", "veterans"),
-			slog.Int("status", resp.StatusCode),
-		)
-
 		return nil, fmt.Errorf("va token request failed: status=%s body=%s", resp.Status, respBody)
 	}
 
 	var response AccessToken
-	err = json.Unmarshal(body, &response)
-	if err != nil {
-		log.Error("VA token decode failed", slog.Any("error", err))
-
-		s.logger.Debug("VA TOKEN EXCHANGE END (FAIL)",
-			slog.String("component", "veterans"),
-			slog.String("reason", "decode_failed"),
-		)
-
+	if err := json.Unmarshal(body, &response); err != nil {
+		s.logger.Error("VA token decode failed", slog.Any("error", err))
 		return nil, err
 	}
 	if response.AccessToken == "" {
-		err := errors.New("va token response missing access_token")
-		log.Error("VA token response invalid", slog.Any("error", err))
-
-		s.logger.Debug("VA TOKEN EXCHANGE END (FAIL)",
-			slog.String("component", "veterans"),
-			slog.String("reason", "missing_access_token"),
-		)
-
-		return nil, err
+		return nil, errors.New("va token response missing access_token")
 	}
 
 	s.cachedToken = &response
 	s.tokenExpAt = time.Now().UTC().Add(time.Duration(response.ExpiresIn) * time.Second)
 
-	s.logger.Debug("VA token cached",
-		slog.Int("expires_in", response.ExpiresIn),
-		slog.Time("token_exp_at_utc", s.tokenExpAt),
-	)
-
-	s.logger.Debug("VA TOKEN EXCHANGE END (OK)",
-		slog.String("component", "veterans"),
-	)
-
+	s.logger.Debug("VA token cached", slog.Int("expires_in", response.ExpiresIn), slog.Time("token_exp_at_utc", s.tokenExpAt))
 	return &response, nil
 }
 
@@ -301,12 +213,120 @@ func (s *service) getCachedTokenIfValid() *AccessToken {
 	if s.cachedToken == nil {
 		return nil
 	}
-	if time.Now().UTC().After(s.tokenExpAt.Add(-tokenReuseSkewSeconds * time.Second)) {
+	if time.Now().UTC().After(s.tokenExpAt.Add(-tokenReuseSkewSeconds)) {
 		return nil
 	}
 	return s.cachedToken
 }
 
-func (s *service) Submit(ctx context.Context, req DisabilityRatingRequest) (DisabilityRatingResponse_200, error) {
-	return DisabilityRatingResponse_200{}, errors.New("not implemented")
+// Submit calls the VA Disability Rating endpoint using:
+// - launch built from ICN (request-scoped)
+// - OAuth access token (client-scoped)
+func (s *service) Submit(ctx context.Context, icn string, req DisabilityRatingRequest) (DisabilityRatingResponse, error) {
+	if icn == "" {
+		return DisabilityRatingResponse{}, errors.New("icn required")
+	}
+
+	if s.cfg == nil {
+		return DisabilityRatingResponse{}, errors.New("missing config")
+	}
+
+	if s.cfg.DisabilityRatingURL == "" {
+		return DisabilityRatingResponse{}, errors.New("cfg.DisabilityRatingURL is required")
+	}
+
+	if len(DefaultTokenScopes) == 0 {
+		return DisabilityRatingResponse{}, errors.New("defaultVAScopes must be set")
+	}
+
+	launch, err := BuildLaunchParam(icn)
+	if err != nil {
+		s.logger.Error("VA launch param build failed", slog.Any("error", err))
+		return DisabilityRatingResponse{}, err
+	}
+
+	_, hasDeadline := ctx.Deadline()
+	if !hasDeadline && s.timeout > 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, s.timeout)
+		defer cancel()
+	}
+
+	tok, err := s.GetAccessToken(ctx, DefaultTokenScopes)
+	if err != nil {
+		return DisabilityRatingResponse{}, err
+	}
+
+	endpoint, err := url.Parse(s.cfg.DisabilityRatingURL)
+	if err != nil {
+		return DisabilityRatingResponse{}, fmt.Errorf("invalid DisabilityRatingURL: %w", err)
+	}
+
+	q := endpoint.Query()
+	q.Set("launch", launch)
+	endpoint.RawQuery = q.Encode()
+
+	bodyBytes, err := json.Marshal(req)
+	if err != nil {
+		return DisabilityRatingResponse{}, err
+	}
+
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, endpoint.String(), bytes.NewReader(bodyBytes))
+	if err != nil {
+		return DisabilityRatingResponse{}, err
+	}
+
+	httpReq.Header.Set("Accept", applicationJSON)
+	httpReq.Header.Set("Content-Type", applicationJSON)
+	httpReq.Header.Set(authHeader, "Bearer "+tok.AccessToken)
+
+	log := s.logger.With(
+		slog.String("operation", "va_submit"),
+		slog.String("method", httpReq.Method),
+		slog.String("host", httpReq.URL.Host),
+		slog.String("path", httpReq.URL.Path),
+	)
+
+	log.Debug("VA submit HTTP request start")
+
+	start := time.Now()
+	resp, err := s.client.Do(httpReq)
+	latency := time.Since(start)
+	if err != nil {
+		log.Error("VA submit request failed", slog.Any("error", err), slog.Duration("latency", latency))
+		return DisabilityRatingResponse{}, err
+	}
+	defer resp.Body.Close()
+
+	respBodyBytes, _ := io.ReadAll(resp.Body)
+
+	log.Info("VA submit response received",
+		slog.Int("status", resp.StatusCode),
+		slog.String("content_type", resp.Header.Get("Content-Type")),
+		slog.Duration("latency", latency),
+	)
+
+	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		snippet := strings.TrimSpace(string(respBodyBytes))
+		if len(snippet) > 800 {
+			snippet = snippet[:800] + "..."
+		}
+
+		log.Error("VA submit non-2xx",
+			slog.Int("status", resp.StatusCode),
+			slog.String("www_authenticate", resp.Header.Get("WWW-Authenticate")),
+			slog.String("body_response", snippet),
+		)
+
+		return DisabilityRatingResponse{}, fmt.Errorf("va submit failed: status=%s body=%s", resp.Status, snippet)
+	}
+
+	var out DisabilityRatingResponse
+	if err := json.Unmarshal(respBodyBytes, &out); err != nil {
+		log.Error("VA submit decode failed", slog.Any("error", err))
+		return DisabilityRatingResponse{}, err
+	}
+
+	log.Debug("VA submit end (OK)")
+	return out, nil
 }

@@ -5,19 +5,13 @@ import (
 	"net/http"
 
 	"github.com/DSACMS/verification-service-api/pkg/core"
+	"github.com/DSACMS/verification-service-api/pkg/oauthLocal"
 	"golang.org/x/oauth2"
 	"golang.org/x/oauth2/clientcredentials"
 )
 
 func nscHTTPClient(ctx context.Context, cfg *core.NSCConfig) *http.Client {
-	base := &http.Client{
-		CheckRedirect: func(r *http.Request, via []*http.Request) error {
-			if len(via) > 0 {
-				r.Header = via[0].Header.Clone()
-			}
-			return nil
-		},
-	}
+	base := oauthLocal.HeaderPreservingClient()
 
 	ctx = context.WithValue(ctx, oauth2.HTTPClient, base)
 
