@@ -20,7 +20,8 @@ import (
 var ErrRunFailed = errors.New("application failed to run")
 
 func main() {
-	if err := run(); err != nil {
+	err := run()
+	if err != nil {
 		os.Exit(1)
 	}
 	os.Exit(0)
