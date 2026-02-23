@@ -45,6 +45,7 @@ func New(cfg *core.NSCConfig, opts Options) EducationService {
 	)
 
 	client := opts.HTTPClient
+	
 	if client == nil {
 		client = nscHTTPClient(context.Background(), cfg)
 	}
