@@ -14,11 +14,7 @@ import (
 func VeteranAffairsHandler(cfg *core.VeteranAffairsConfig, vet veterans.VeteransService, logger *slog.Logger) fiber.Handler {
 	const vaContextTimeout time.Duration = 5 * time.Second
 
-	// Prefer core.NewLogger* if your project has it.
-	// If not, this safely falls back to slog.Default().
 	if logger == nil {
-		// If you have a constructor, swap this in:
-		// logger = core.NewLogger() // or core.NewLoggerJSON(), etc.
 		logger = slog.Default()
 	}
 
@@ -37,8 +33,6 @@ func VeteranAffairsHandler(cfg *core.VeteranAffairsConfig, vet veterans.Veterans
 		ctx, cancel := context.WithTimeout(c.Context(), vaContextTimeout)
 		defer cancel()
 
-		// Option A: OAuth token exchange is client-scoped.
-		// ICN/launch are request-scoped and belong in Submit (resource call), not here.
 		tok, err := vet.GetAccessToken(ctx, veterans.DefaultTokenScopes)
 		if err != nil {
 			logger.Error("failed to get VA access token", slog.Any("err", err))
