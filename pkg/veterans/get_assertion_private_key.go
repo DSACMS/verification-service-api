@@ -1,7 +1,6 @@
 package veterans
 
 import (
-	"crypto/rsa"
 	"errors"
 	"os"
 	"time"
@@ -10,7 +9,7 @@ import (
 	"github.com/google/uuid"
 )
 
-// BuildClientAssertion builds and signs the JWT used as client_assertion.
+// GetAssertionPrivatekey builds and signs the JWT used as client_assertion.
 //
 // clientID: the VA-issued client id
 //
@@ -19,7 +18,7 @@ import (
 // audience: the Okta token recipient URL (the "aud" from VA docs table)
 //
 // kid: optional key id ("" if not used)
-func BuildClientAssertion(clientID, privateKeyPath, audience string) (string, error) {
+func GetAssertionPrivatekey(clientID, privateKeyPath, audience string) (string, error) {
 	if clientID == "" || privateKeyPath == "" || audience == "" {
 		return "", errors.New("clientID, privateKeyPath, and audience are required")
 	}
@@ -32,6 +31,15 @@ func BuildClientAssertion(clientID, privateKeyPath, audience string) (string, er
 	// Integer. A timestamp for when the token will expire, given in seconds since January 1, 1970. This claim fails the request if the expiration time is more than 300 seconds (5 minutes) after the iat.
 	var exp int64 = now.Add(4 * time.Minute).Unix()
 
+	claims := jwt.MapClaims{
+		"aud": audience,
+		"iss": clientID,
+		"sub": clientID,
+		"iat": iat,
+		"exp": exp + 300,
+		"jti": uuid.NewString(),
+	}
+
 	keyBytes, err := os.ReadFile(privateKeyPath)
 	if err != nil {
 		return "", err
@@ -42,16 +50,8 @@ func BuildClientAssertion(clientID, privateKeyPath, audience string) (string, er
 		return "", err
 	}
 
-	claims := jwt.MapClaims{
-		"aud": audience,
-		"iss": clientID,
-		"sub": clientID,
-		"iat": iat,
-		"exp": exp,
-		"jti": uuid.NewString(),
-	}
-
 	tok := jwt.NewWithClaims(jwt.SigningMethodRS256, claims)
+
 
 	signed, err := tok.SignedString(privateKey)
 	if err != nil {
@@ -60,6 +60,3 @@ func BuildClientAssertion(clientID, privateKeyPath, audience string) (string, er
 	return signed, nil
 }
 
-func parseRSAPrivateKey(pemBytes []byte) (*rsa.PrivateKey, error) {
-	return jwt.ParseRSAPrivateKeyFromPEM(pemBytes)
-}

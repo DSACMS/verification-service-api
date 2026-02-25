@@ -13,7 +13,8 @@ import (
 
 func (s *service) Submit(ctx context.Context, reqBody Request) (Response, error) {
 	if s.opts.Timeout > 0 {
-		if _, hasDeadline := ctx.Deadline(); !hasDeadline {
+		_, hasDeadline := ctx.Deadline()
+		if !hasDeadline {
 			var cancel context.CancelFunc
 			ctx, cancel = context.WithTimeout(ctx, s.opts.Timeout)
 			defer cancel()

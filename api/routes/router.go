@@ -57,8 +57,8 @@ func RegisterRoutes(app fiber.Router, cfg *core.Config, rdb *redis.Client, logge
 
 	api.Get("/edu", withCB(handlers.EducationHandler(cfg, edu, logger)))
 
-	api.Get(
-		"/va",
-		withCB(handlers.VeteranAffairsHandler(&cfg.VA, vetSvc, logger)),
-	)
+	vaHandler := handlers.VeteranAffairsHandler(&cfg.VA, vetSvc, logger)
+
+	api.Get("/va", withCB(vaHandler))
+	api.Post("/va/disability-rating", withCB(vaHandler))
 }

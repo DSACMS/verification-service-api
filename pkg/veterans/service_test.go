@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"crypto/rsa"
 	"crypto/x509"
+	"encoding/base64"
 	"encoding/pem"
 	"io"
 	"net/http"
@@ -33,15 +34,15 @@ func writeTempPEMKey(t *testing.T) string {
 	if err != nil {
 		t.Fatalf("create temp pem: %v", err)
 	}
-	err = pem.Encode(f, block)
-	if err != nil {
+	if err := pem.Encode(f, block); err != nil {
 		t.Fatalf("encode pem: %v", err)
 	}
 	_ = f.Close()
+
 	return f.Name()
 }
 
-func TestGetAccessToken_HappyPath_AndCaching(t *testing.T) {
+func TestGetAccessToken_HappyPath_AndCaching_PerICN(t *testing.T) {
 	var hits int32
 
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
@@ -63,7 +64,6 @@ func TestGetAccessToken_HappyPath_AndCaching(t *testing.T) {
 			t.Fatalf("parse form: %v", err)
 		}
 
-		// passing in required params
 		if form.Get("grant_type") != "client_credentials" {
 			t.Fatalf("grant_type mismatch: %q", form.Get("grant_type"))
 		}
@@ -73,11 +73,23 @@ func TestGetAccessToken_HappyPath_AndCaching(t *testing.T) {
 		if form.Get("client_assertion") == "" {
 			t.Fatalf("missing client_assertion")
 		}
-		if form.Get("launch") == "" {
+
+		launch := form.Get("launch")
+		if launch == "" {
 			t.Fatalf("missing launch")
 		}
-		if form.Get("scope") != "disability-rating.read something.else" {
-			t.Fatalf("scope mismatch: %q", form.Get("scope"))
+
+		decoded, err := base64.StdEncoding.DecodeString(launch)
+		if err != nil {
+			t.Fatalf("launch is not valid base64: %v", err)
+		}
+		if !strings.Contains(string(decoded), `"patient"`) {
+			t.Fatalf("launch decoded missing patient: %s", string(decoded))
+		}
+
+		scope := form.Get("scope")
+		if !strings.Contains(scope, "disability-rating.read") || !strings.Contains(scope, "something.else") {
+			t.Fatalf("scope mismatch: %q", scope)
 		}
 
 		w.Header().Set("Content-Type", "application/json")
@@ -106,9 +118,9 @@ func TestGetAccessToken_HappyPath_AndCaching(t *testing.T) {
 
 	ctx := context.Background()
 	scopes := []string{"disability-rating.read", "something.else"}
+	icn := "1000720100V271387"
 
-	// should hit server
-	tok1, err := svc.GetAccessToken(ctx, scopes)
+	tok1, err := svc.GetAccessToken(ctx, icn, scopes)
 	if err != nil {
 		t.Fatalf("GetAccessToken #1: %v", err)
 	}
@@ -116,8 +128,7 @@ func TestGetAccessToken_HappyPath_AndCaching(t *testing.T) {
 		t.Fatalf("unexpected token: %q", tok1.AccessToken)
 	}
 
-	// should use cache without hitting server
-	tok2, err := svc.GetAccessToken(ctx, scopes)
+	tok2, err := svc.GetAccessToken(ctx, icn, scopes)
 	if err != nil {
 		t.Fatalf("GetAccessToken #2: %v", err)
 	}
@@ -127,6 +138,6 @@ func TestGetAccessToken_HappyPath_AndCaching(t *testing.T) {
 
 	got := atomic.LoadInt32(&hits)
 	if got != 1 {
-		t.Fatalf("expected 1 HTTP hit due to caching, got %d", got)
+		t.Fatalf("expected 1 HTTP hit due to caching (same ICN), got %d", got)
 	}
 }
