@@ -32,7 +32,12 @@ import (
 //	export SERVICE_VERSION=$(git rev-parse --short HEAD)
 //	go build -o out \
 //	  -X verification-service-api/pkg/core.ServiceVersion=${SERVICE_VERSION}
+
 var ServiceVersion = "UNSET"
+
+const (
+	contextTimeout time.Duration = 5 * time.Second
+)
 
 // OtelService provides methods for handling OpenTelemetry operations.
 type OtelService interface {
@@ -40,9 +45,7 @@ type OtelService interface {
 	SpanFromContext(c context.Context) trace.Span
 	// Return the underlying LoggerProvider
 	LoggerProvider() log.LoggerProvider
-	// Cleanup any resources associated with this object. Errors
-	// are logged with logger.Error or logger.ErrorContext and
-	// then dismissed.
+	// Cleanup any resources associated with this object. Errors are logged with logger.Error or logger.ErrorContext and then dismissed.
 	Shutdown(c context.Context, logger *slog.Logger)
 }
 
@@ -74,7 +77,7 @@ func (otelService) SpanFromContext(c context.Context) trace.Span {
 }
 
 func (s otelService) Shutdown(c context.Context, logger *slog.Logger) {
-	shutdownCtx, cancel := context.WithTimeout(c, 5*time.Second)
+	shutdownCtx, cancel := context.WithTimeout(c, contextTimeout)
 	defer cancel()
 
 	err := s.shutdown(shutdownCtx)

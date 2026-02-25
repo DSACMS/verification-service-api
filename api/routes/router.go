@@ -2,14 +2,21 @@ package routes
 
 import (
 	"log/slog"
+	"net/http"
+	"time"
 
 	"github.com/DSACMS/verification-service-api/api/handlers"
 	"github.com/DSACMS/verification-service-api/api/middleware"
 	"github.com/DSACMS/verification-service-api/pkg/circuitbreaker"
 	"github.com/DSACMS/verification-service-api/pkg/core"
 	"github.com/DSACMS/verification-service-api/pkg/education"
+	"github.com/DSACMS/verification-service-api/pkg/veterans"
 	"github.com/gofiber/fiber/v2"
 	"github.com/redis/go-redis/v9"
+)
+
+const (
+	timeout time.Duration = 10 * time.Second
 )
 
 func RegisterRoutes(app fiber.Router, cfg *core.Config, rdb *redis.Client, logger *slog.Logger) {
@@ -24,10 +31,21 @@ func RegisterRoutes(app fiber.Router, cfg *core.Config, rdb *redis.Client, logge
 	api := app.Group("/api")
 
 	edu := education.New(&cfg.NSC, education.Options{
-		Logger: logger,
+		Logger:     logger,
+		HTTPClient: http.DefaultClient,
+		Timeout:    timeout,
 	})
 
-	// One breaker per endpoint
+	vetSvc, err := veterans.New(&cfg.VA, veterans.Options{
+		Logger:     logger,
+		HTTPClient: http.DefaultClient,
+		Timeout:    timeout,
+	})
+	if err != nil {
+		logger.Error("failed to init veterans service", slog.Any("err", err))
+		panic(err)
+	}
+
 	withCB := middleware.WithCircuitBreaker(func(name string) *circuitbreaker.RedisBreaker {
 		return circuitbreaker.NewRedisBreaker(
 			rdb,
@@ -37,5 +55,10 @@ func RegisterRoutes(app fiber.Router, cfg *core.Config, rdb *redis.Client, logge
 		)
 	})
 
-	api.Get("/edu", withCB(handlers.TestEducationHandler(cfg, edu, logger)))
+	api.Get("/edu", withCB(handlers.EducationHandler(cfg, edu, logger)))
+
+	vaHandler := handlers.VeteranAffairsHandler(&cfg.VA, vetSvc, logger)
+
+	api.Get("/va", withCB(vaHandler))
+	api.Post("/va/disability-rating", withCB(vaHandler))
 }
