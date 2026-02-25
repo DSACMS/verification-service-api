@@ -31,6 +31,7 @@ const (
 	keyVATokenURL          string = "VA_OAUTH_TOKEN_URL"
 	keyVASandboxKey        string = "VA_SANDBOX_KEY"
 	keyVASandboxRequestID  string = "VA_SANDBOX_REQUEST_ID"
+	keyDisabilityRatingURL string = "VA_DISABILITY_RATING_URL"
 )
 
 func DefaultConfig() Config {
@@ -68,12 +69,13 @@ func DefaultConfig() Config {
 		},
 
 		VA: VeteranAffairsConfig{
-			ClientID:          getEnv(keyVAClientID, ""),
-			TokenRecipientURL: getEnv(keyVATokenRecipientURL, ""),
-			TokenURL:          getEnv(keyVATokenURL, ""),
-			PrivateKeyPath:    getEnv(keyVAPrivateKeyPath, ""),
-			SandboxKey:        getEnv(keyVASandboxKey, ""),
-			SandboxRequestID:  getEnv(keyVASandboxRequestID, ""),
+			ClientID:            getEnv(keyVAClientID, ""),
+			TokenRecipientURL:   getEnv(keyVATokenRecipientURL, ""),
+			TokenURL:            getEnv(keyVATokenURL, ""),
+			PrivateKeyPath:      getEnv(keyVAPrivateKeyPath, ""),
+			SandboxKey:          getEnv(keyVASandboxKey, ""),
+			SandboxRequestID:    getEnv(keyVASandboxRequestID, ""),
+			DisabilityRatingURL: getEnv(keyDisabilityRatingURL, ""),
 		},
 	}
 }
@@ -113,11 +115,12 @@ func NewConfigFromEnv(options ...func(*Config)) (Config, error) {
 		setFromEnv(&cfg.NSC.AccountID, "NSC_ACCOUNT_ID"),
 
 		setFromEnv(&cfg.VA.ClientID, "VA_OAUTH_CLIENT_ID"),
-		setFromEnv(&cfg.VA.TokenRecipientURL, "VA_OAUTH_OKTA_AUDIENCE_URL"),
+		setFromEnv(&cfg.VA.TokenRecipientURL, "VA_TOKEN_RECIPIENT_URL"),
 		setFromEnv(&cfg.VA.TokenURL, "VA_OAUTH_TOKEN_URL"),
 		setFromEnv(&cfg.VA.PrivateKeyPath, "VA_PRIVATE_KEY_PATH"),
 		setFromEnv(&cfg.VA.SandboxKey, "VA_SANDBOX_KEY"),
 		setFromEnv(&cfg.VA.SandboxRequestID, "VA_SANDBOX_REQUEST_ID"),
+		setFromEnv(&cfg.VA.DisabilityRatingURL, "VA_DISABILITY_RATING_URL"),
 	)
 
 	for _, opt := range options {

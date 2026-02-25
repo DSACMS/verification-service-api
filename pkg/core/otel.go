@@ -45,9 +45,7 @@ type OtelService interface {
 	SpanFromContext(c context.Context) trace.Span
 	// Return the underlying LoggerProvider
 	LoggerProvider() log.LoggerProvider
-	// Cleanup any resources associated with this object. Errors
-	// are logged with logger.Error or logger.ErrorContext and
-	// then dismissed.
+	// Cleanup any resources associated with this object. Errors are logged with logger.Error or logger.ErrorContext and then dismissed.
 	Shutdown(c context.Context, logger *slog.Logger)
 }
 

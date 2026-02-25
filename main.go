@@ -38,6 +38,7 @@ func run() error {
 		return ErrRunFailed
 	}
 
+
 	cfg, err := core.NewConfigFromEnv()
 	if err != nil {
 		logger.Error(

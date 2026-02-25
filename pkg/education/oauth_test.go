@@ -14,7 +14,6 @@ import (
 func TestNSCHTTPClient_PreservesAuthOnRedirect(t *testing.T) {
 	var seenAuth string
 
-	// Test NSC server
 	ts := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		switch r.URL.Path {
 

@@ -26,7 +26,6 @@ func TestNewClient_Ping_Set_Get(t *testing.T) {
 
 	require.NoErrorf(t, err, "Ping(ctx, rdb) returned an error: %v", err)
 
-	// test namespace
 	key := "cb:test:foo"
 
 	err = rdb.Set(ctx, key, "bar", 5*time.Second).Err()
