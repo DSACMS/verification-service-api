@@ -34,7 +34,6 @@ func VeteranAffairsHandler(cfg *core.VeteranAffairsConfig, vet veterans.Veterans
 		ctx, cancel := context.WithTimeout(c.Context(), vaContextTimeout)
 		defer cancel()
 
-		// POST /api/va/disability-rating
 		if c.Method() == fiber.MethodPost && strings.HasSuffix(c.Path(), "/va/disability-rating") {
 			var req veterans.DisabilityRatingRequest
 			if err := c.BodyParser(&req); err != nil {
@@ -49,7 +48,6 @@ func VeteranAffairsHandler(cfg *core.VeteranAffairsConfig, vet veterans.Veterans
 			return c.Status(fiber.StatusOK).JSON(out)
 		}
 
-		// GET /api/va (token check)
 		tok, err := vet.GetAccessToken(ctx, icn, veterans.DefaultTokenScopes)
 		if err != nil {
 			logger.Error("failed to get VA access token", slog.Any("err", err))

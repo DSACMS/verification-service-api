@@ -42,6 +42,18 @@ var DefaultTokenScopes = []string{
 	"veteran_status.read",
 }
 
+type RedisCache interface {
+	Get(ctx context.Context, key string) (string, error)
+	SetEX(ctx context.Context, key string, value string, ttl time.Duration) error
+}
+
+type cachedToken struct {
+	AccessToken string `json:"access_token"`
+	TokenType   string `json:"token_type"`
+	ExpiryUnix  int64  `json:"expiry_unix"` // unix seconds
+	Scope       string `json:"scope"`
+}
+
 type VeteransService interface {
 	GetAccessToken(ctx context.Context, icn string, scopes []string) (*AccessToken, error)
 	Submit(ctx context.Context, icn string, req DisabilityRatingRequest) (DisabilityRatingResponse, error)
@@ -56,6 +68,8 @@ type Options struct {
 	HTTPClient HTTPTransport
 	Logger     *slog.Logger
 	Timeout    time.Duration
+
+	Redis RedisCache
 }
 
 type service struct {
@@ -66,6 +80,8 @@ type service struct {
 
 	mu        sync.Mutex
 	tokenSrcs map[string]oauth2.TokenSource
+
+	redis RedisCache
 }
 
 type AccessToken struct {
@@ -116,6 +132,7 @@ func New(cfg *core.VeteranAffairsConfig, opts Options) (VeteransService, error) 
 		client:    client,
 		logger:    logger,
 		timeout:   timeout,
+		redis:     opts.Redis,
 		tokenSrcs: make(map[string]oauth2.TokenSource),
 	}, nil
 }
@@ -286,6 +303,7 @@ func (s *service) getOrCreateTokenSource(cacheKey string, scopes []string, launc
 		scopes:  scopes,
 		launch:  launch,
 		timeout: s.timeout,
+		redis:   s.redis,
 	}
 
 	reuse := oauth2.ReuseTokenSourceWithExpiry(nil, base, tokenReuseSkewSeconds)
@@ -300,6 +318,7 @@ type vaTokenSource struct {
 	scopes  []string
 	launch  string
 	timeout time.Duration
+	redis   RedisCache
 }
 
 func (s *vaTokenSource) Token() (*oauth2.Token, error) {
@@ -333,6 +352,33 @@ func (s *vaTokenSource) Token() (*oauth2.Token, error) {
 	}
 
 	scopeStr := strings.Join(s.scopes, " ")
+
+	ctx := context.Background()
+	if s.timeout > 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, s.timeout)
+		defer cancel()
+	}
+
+	if s.redis != nil {
+		cacheKey := s.redisKey(scopeStr)
+
+		raw, err := s.redis.Get(ctx, cacheKey)
+		if err == nil && strings.TrimSpace(raw) != "" {
+			var ct cachedToken
+			if jerr := json.Unmarshal([]byte(raw), &ct); jerr == nil && ct.AccessToken != "" {
+				exp := time.Unix(ct.ExpiryUnix, 0).UTC()
+				if tokenStillUsable(exp) {
+					return &oauth2.Token{
+						AccessToken: ct.AccessToken,
+						TokenType:   ct.TokenType,
+						Expiry:      exp,
+					}, nil
+				}
+			}
+		}
+	}
+
 	s.logger.Info("VA token request inputs",
 		slog.String("client_id_prefix", prefix(s.cfg.ClientID, 8)),
 		slog.String("okta_aud", s.cfg.TokenRecipientURL),
@@ -353,7 +399,6 @@ func (s *vaTokenSource) Token() (*oauth2.Token, error) {
 	firstLine := strings.SplitN(string(keyBytes), "\n", 2)[0]
 
 	modHash, mhErr := rsaModulusMD5FromPEM(keyBytes)
-
 	if mhErr != nil {
 		s.logger.Warn("VA private key parse failed (fingerprint unavailable)",
 			slog.String("first_line", firstLine),
@@ -382,13 +427,6 @@ func (s *vaTokenSource) Token() (*oauth2.Token, error) {
 		"client_assertion":      {assertion},
 		"scope":                 {scopeStr},
 		"launch":                {s.launch},
-	}
-
-	ctx := context.Background()
-	if s.timeout > 0 {
-		var cancel context.CancelFunc
-		ctx, cancel = context.WithTimeout(ctx, s.timeout)
-		defer cancel()
 	}
 
 	req, err := newFormPOST(ctx, http.MethodPost, s.cfg.TokenURL, form)
@@ -423,13 +461,35 @@ func (s *vaTokenSource) Token() (*oauth2.Token, error) {
 
 	exp := time.Now().UTC().Add(time.Duration(response.ExpiresIn) * time.Second)
 
-	return &oauth2.Token{
+	tok := &oauth2.Token{
 		AccessToken: response.AccessToken,
 		TokenType:   response.TokenType,
 		Expiry:      exp,
-	}, nil
-}
+	}
 
+	if s.redis != nil {
+		ttl := time.Until(exp) - tokenReuseSkewSeconds
+		if ttl < 5*time.Second {
+			ttl = 5 * time.Second
+		}
+
+		ct := cachedToken{
+			AccessToken: tok.AccessToken,
+			TokenType:   tok.TokenType,
+			ExpiryUnix:  tok.Expiry.Unix(),
+			Scope:       scopeStr,
+		}
+
+		b, _ := json.Marshal(ct)
+		cacheKey := s.redisKey(scopeStr)
+
+		if err := s.redis.SetEX(ctx, cacheKey, string(b), ttl); err != nil {
+			s.logger.Warn("VA token cache write failed", slog.Any("error", err))
+		}
+	}
+
+	return tok, nil
+}
 func (s *service) Submit(ctx context.Context, icn string, req DisabilityRatingRequest) (DisabilityRatingResponse, error) {
 	if icn == "" {
 		return DisabilityRatingResponse{}, errors.New("icn required")
@@ -561,4 +621,13 @@ func rsaModulusMD5FromPEM(pemBytes []byte) (string, error) {
 
 	sum := md5.Sum(rsaPriv.N.Bytes())
 	return hex.EncodeToString(sum[:]), nil
+}
+
+func (s *vaTokenSource) redisKey(scopeStr string) string {
+	sum := md5.Sum([]byte(s.launch + "|" + scopeStr))
+	return "va:token:" + hex.EncodeToString(sum[:])
+}
+
+func tokenStillUsable(exp time.Time) bool {
+	return time.Until(exp) > tokenReuseSkewSeconds
 }
