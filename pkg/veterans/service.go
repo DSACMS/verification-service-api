@@ -351,6 +351,7 @@ func (s *vaTokenSource) Token() (*oauth2.Token, error) {
 		return nil, errors.New("cfg.TokenURL is required")
 	}
 
+	
 	scopeStr := strings.Join(s.scopes, " ")
 
 	ctx := context.Background()
