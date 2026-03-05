@@ -11,4 +11,5 @@ private.jwk
 public.jwk
 
 
-
+*.pem
+*.jwk
