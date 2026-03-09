@@ -1,8 +1,31 @@
 services:
+  redis:
+    image: redis:7-alpine
+    command: >
+          redis-server
+          --requirepass localdevpassword
+          --port 0
+          --tls-port 6379
+          --tls-cert-file /tls/redis.crt
+          --tls-key-file /tls/redis.key
+          --tls-ca-cert-file /tls/ca.crt
+          --tls-auth-clients yes
+    volumes:
+      - ./redis/tls:/tls:ro
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "--tls", "-h", "localhost", "-p", "6379", "--cacert", "/tls/ca.crt", "PING"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
   api:
     build: .
     environment:
       OTEL_EXPORTER_OTLP_ENDPOINT: otel-collector:4317
+      REDIS_PASSWORD: localdevpassword
+      REDIS_ADDR: redis:6379
     ports:
       - "8000:8000"
     depends_on:

@@ -2,6 +2,7 @@ package redis
 
 import (
 	"context"
+	"crypto/tls"
 	"log/slog"
 	"time"
 
@@ -48,6 +49,9 @@ func NewClient(c Config, logger *slog.Logger) *redis.Client {
 		PoolTimeout:  defaultPoolTimeout,
 		PoolSize:     defaultPoolSize,
 		MinIdleConns: defaultMinIdleConns,
+		TLSConfig: &tls.Config{
+			MinVersion: tls.VersionTLS12,
+		},
 	}
 
 	logger.Info("initializing redis client")

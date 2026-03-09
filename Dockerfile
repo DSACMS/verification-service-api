@@ -8,7 +8,7 @@ RUN go mod download
 COPY . .
 
 ENV CGO_ENABLED=0 GOOS=linux GOARCH=amd64
-RUN go build -ldflags="-s -w" -a -o apiserver .
+RUN GOMAXPROCS=1 go build -p 1 -ldflags="-s -w" -a -o apiserver .
 
 FROM alpine:3.23
 
