@@ -40,7 +40,7 @@ func NewClient(c Config, logger *slog.Logger) *redis.Client {
 
 	opts := &redis.Options{
 		Addr:         c.Addr,
-		Password:     c.Password, // No password
+		Password:     c.Password,
 		DB:           c.DB,
 		DialTimeout:  defaultDialTimeout,
 		ReadTimeout:  defaultReadTimeout,

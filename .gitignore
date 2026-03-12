@@ -4,3 +4,12 @@ tmp/
 vendor/
 dump.rdb
 .DS_Store
+
+public.pem
+private.pem
+private.jwk
+public.jwk
+
+
+*.pem
+*.jwk

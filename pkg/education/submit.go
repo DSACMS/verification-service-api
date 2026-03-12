@@ -13,7 +13,8 @@ import (
 
 func (s *service) Submit(ctx context.Context, reqBody Request) (Response, error) {
 	if s.opts.Timeout > 0 {
-		if _, hasDeadline := ctx.Deadline(); !hasDeadline {
+		_, hasDeadline := ctx.Deadline()
+		if !hasDeadline {
 			var cancel context.CancelFunc
 			ctx, cancel = context.WithTimeout(ctx, s.opts.Timeout)
 			defer cancel()
@@ -81,12 +82,13 @@ func (s *service) Submit(ctx context.Context, reqBody Request) (Response, error)
 		return Response{}, fmt.Errorf("nsc submit failed: status=%d", resp.StatusCode)
 	}
 
-	var out Response
-	if err := json.Unmarshal(respBytes, &out); err != nil {
+	var response Response
+	err = json.Unmarshal(respBytes, &response)
+	if err != nil {
 		log.Error("nsc submit decode failed", slog.Any("error", err))
 		return Response{}, fmt.Errorf("decode nsc response: %w", err)
 	}
 
 	log.Debug("nsc submit decoded successfully")
-	return out, nil
+	return response, nil
 }
