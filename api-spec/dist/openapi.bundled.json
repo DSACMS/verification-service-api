@@ -330,7 +330,7 @@
     },
     "examples": {
       "EduVerificationRequestExample": {
-        "summary": "Minimal canonical request with required consent token header.",
+        "summary": "Minimal Education request with required consent token header.",
         "value": {
           "applicant": {
             "firstName": "Lynette",

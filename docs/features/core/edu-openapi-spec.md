@@ -10,19 +10,20 @@ compliance, authentication, and consent-token requirements.
 
 ## What Is New
 
-- Canonical public endpoint: `POST /v1/edu`
+- Education: `POST /v1/edu`
+- Spec artifact endpoint: `GET /api-spec/v1/verify`
 - Security requirements:
   - Bearer token authentication
   - Required header: `X-EMMY-Consent-Token` (non-empty string)
-- Canonical request shape:
+- Education request shape:
   - Required top-level object: `applicant`
   - Required applicant fields: `firstName`, `lastName`, `dateOfBirth`
   - Optional applicant fields: `middleName`, `ssn`
   - `additionalProperties: false` on the request and applicant objects
-- Canonical success response shape:
+- Education success response shape:
   - `currentlyEnrolled` with enum values `Y` or `N`
   - `enrollmentStatus` with enum values `F`, `Q`, `H`, or `L`
-- Canonical error envelope for non-2xx responses:
+- Education error envelope for non-2xx responses:
   - RFC 7807 style `application/problem+json`
   - Shared fields: `type`, `title`, `status`, optional `detail`, optional `instance`
 - Explicit error responses:
@@ -62,7 +63,24 @@ The contract now also requires bearer authentication for `POST /v1/edu`:
 - Scope model: no OAuth scopes are declared in the contract
 
 Authentication is defined both globally and on the EDU operation so the
-security requirement is visible in the canonical path definition.
+security requirement is visible in the Education path definition.
+
+The bundled OpenAPI JSON endpoint, `GET /api-spec/v1/verify`, is also served
+through the application’s existing middleware stack and therefore remains
+behind the current bearer-auth behavior.
+
+## Spec Artifact Endpoint
+
+The service also exposes the checked-in bundled OpenAPI JSON artifact at:
+
+- `GET /api-spec/v1/verify`
+
+Behavior:
+
+- Returns the contents of `api-spec/dist/openapi.bundled.json`
+- Responds with `Content-Type: application/json`
+- Does not rebuild or transform the OpenAPI document at request time
+- Uses the checked-in bundled JSON file as the runtime source of truth
 
 ## Request and Response Notes
 
@@ -97,10 +115,11 @@ problem responses under `api-spec/components/examples/responses/problems/`.
 
 ## Sample Flow
 
-1. Client sends `POST /v1/edu` with bearer auth, the consent token header, and the canonical applicant payload.
+1. Client sends `POST /v1/edu` with bearer auth, the consent token header, and the Education applicant payload.
 1. EDU service validates schema, authentication, and the required consent token header.
 1. EDU service executes verification through internal dependency orchestration.
 1. EDU service returns the normalized enrollment result with `currentlyEnrolled` and `enrollmentStatus`.
+1. Clients that need the machine-readable contract can request `GET /api-spec/v1/verify` to retrieve the bundled OpenAPI JSON artifact.
 1. If validation, auth, throttling, or dependency errors occur, EDU service returns RFC 7807 problem details.
 
 ## Spec and Governance Files
