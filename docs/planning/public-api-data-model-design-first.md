@@ -154,14 +154,24 @@ service behavior or superseded response envelopes.
 ### 2. Bundle, Validate, and Lint
 
 ```bash
-# Bundle (required for multi-file refs)
-npx @redocly/cli bundle api-spec/openapi.yaml -o api-spec/dist/openapi.bundled.yaml
+# 1. Bundle the checked-in YAML and JSON artifacts (required for multi-file refs)
+./scripts/bundle-api-spec
 
-# Validate OpenAPI structure
-npx @apidevtools/swagger-cli validate api-spec/dist/openapi.bundled.yaml
+# 2. Validate OpenAPI structure
+./scripts/validate-api-spec
 
-# Lint style and governance rules
-npx @stoplight/spectral-cli lint api-spec/dist/openapi.bundled.yaml --ruleset .spectral.yaml
+# 3. Lint style and governance rules
+./scripts/lint-api-spec
+```
+
+Using `mise`, the same workflow is available as:
+
+```bash
+mise install
+mise run bundle-api-spec
+mise run validate-api-spec
+mise run lint-api-spec
+mise run check-api-spec
 ```
 
 Starter `.spectral.yaml` (commit and version in repo):
@@ -169,8 +179,6 @@ Starter `.spectral.yaml` (commit and version in repo):
 ```yaml
 extends:
   - spectral:oas
-  - https://apistylebook.stoplight.io/docs/url-guidelines/ruleset.yaml
-  - https://apistylebook.stoplight.io/docs/owasp-top-10/ruleset.yaml
 rules:
   operation-summary-required:
     description: Every operation must define a summary.
@@ -294,7 +302,6 @@ Implementation note: use a stable "base spec" artifact from `main` in CI (downlo
 - [Stoplight: The Right Way to API (Design-First rationale)](https://blog.stoplight.io/the-right-way-to-api)
 - [OpenAPI Specification 3.1.0](https://spec.openapis.org/oas/v3.1.0.html)
 - [Spectral (Stoplight) repository and docs](https://github.com/stoplightio/spectral)
-- [API Stylebook rulesets (including OWASP + URL style guides)](https://apistylebook.stoplight.io/)
 - [Redocly CLI `bundle` command](https://redocly.com/docs/cli/commands/bundle)
 - [Prism (Stoplight) repository and CLI usage](https://github.com/stoplightio/prism)
 - [oasdiff (breaking change detection)](https://www.oasdiff.com/)
