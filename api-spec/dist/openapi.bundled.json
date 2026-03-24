@@ -176,7 +176,7 @@
         "additionalProperties": false,
         "required": [
           "currentlyEnrolled",
-          "enrollementStatus"
+          "enrollmentStatus"
         ],
         "properties": {
           "currentlyEnrolled": {
@@ -188,7 +188,7 @@
             "description": "Whether the subject is currently enrolled.",
             "example": "Y"
           },
-          "enrollementStatus": {
+          "enrollmentStatus": {
             "type": "string",
             "enum": [
               "F",
@@ -345,7 +345,7 @@
         "summary": "Subject is currently enrolled full-time.",
         "value": {
           "currentlyEnrolled": "Y",
-          "enrollementStatus": "F"
+          "enrollmentStatus": "F"
         }
       },
       "BadRequestProblemExample": {

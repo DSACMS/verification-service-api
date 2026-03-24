@@ -121,7 +121,7 @@ components:
       additionalProperties: false
       required:
         - currentlyEnrolled
-        - enrollementStatus
+        - enrollmentStatus
       properties:
         currentlyEnrolled:
           type: string
@@ -130,7 +130,7 @@ components:
             - 'N'
           description: Whether the subject is currently enrolled.
           example: 'Y'
-        enrollementStatus:
+        enrollmentStatus:
           type: string
           enum:
             - F
@@ -235,7 +235,7 @@ components:
       summary: Subject is currently enrolled full-time.
       value:
         currentlyEnrolled: 'Y'
-        enrollementStatus: F
+        enrollmentStatus: F
     BadRequestProblemExample:
       summary: Request validation failed.
       value:

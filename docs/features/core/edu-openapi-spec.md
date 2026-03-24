@@ -21,7 +21,7 @@ compliance, authentication, and consent-token requirements.
   - `additionalProperties: false` on the request and applicant objects
 - Canonical success response shape:
   - `currentlyEnrolled` with enum values `Y` or `N`
-  - `enrollementStatus` with enum values `F`, `Q`, `H`, or `L`
+  - `enrollmentStatus` with enum values `F`, `Q`, `H`, or `L`
 - Canonical error envelope for non-2xx responses:
   - RFC 7807 style `application/problem+json`
   - Shared fields: `type`, `title`, `status`, optional `detail`, optional `instance`
@@ -80,7 +80,7 @@ transaction-and-schools envelope, the current contract returns a normalized
 enrollment result object with only:
 
 - `currentlyEnrolled`
-- `enrollementStatus`
+- `enrollmentStatus`
 
 This keeps the public contract focused on the verification outcome while leaving
 dependency-specific detail outside the API boundary.
@@ -100,7 +100,7 @@ problem responses under `api-spec/components/examples/responses/problems/`.
 1. Client sends `POST /v1/edu` with bearer auth, the consent token header, and the canonical applicant payload.
 1. EDU service validates schema, authentication, and the required consent token header.
 1. EDU service executes verification through internal dependency orchestration.
-1. EDU service returns the normalized enrollment result with `currentlyEnrolled` and `enrollementStatus`.
+1. EDU service returns the normalized enrollment result with `currentlyEnrolled` and `enrollmentStatus`.
 1. If validation, auth, throttling, or dependency errors occur, EDU service returns RFC 7807 problem details.
 
 ## Spec and Governance Files

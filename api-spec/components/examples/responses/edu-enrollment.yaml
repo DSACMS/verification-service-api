@@ -2,4 +2,4 @@ EduEnrollmentExample:
   summary: Subject is currently enrolled full-time.
   value:
     currentlyEnrolled: "Y"
-    enrollementStatus: F
+    enrollmentStatus: F

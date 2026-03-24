@@ -3,7 +3,7 @@ EduEnrollment:
   additionalProperties: false
   required:
     - currentlyEnrolled
-    - enrollementStatus
+    - enrollmentStatus
   properties:
     currentlyEnrolled:
       type: string
@@ -12,7 +12,7 @@ EduEnrollment:
         - "N"
       description: Whether the subject is currently enrolled.
       example: "Y"
-    enrollementStatus:
+    enrollmentStatus:
       type: string
       enum:
         - F
