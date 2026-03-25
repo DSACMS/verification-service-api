@@ -16,7 +16,7 @@ func TestLoadEnvFile(t *testing.T) {
 func TestLoadEnv(t *testing.T) {
 	err := LoadEnv("os")
 
-	require.NotNilf(t, err, "LoadingEnv should not return an error. Got %v", err)
+	require.NoErrorf(t, err, "LoadingEnv should not return an error. Got %v", err)
 }
 
 func TestGetEnv_KeyValue(t *testing.T) {

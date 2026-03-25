@@ -120,17 +120,17 @@ func TestGetAccessToken_HappyPath_AndCaching_PerICN(t *testing.T) {
 	scopes := []string{"disability-rating.read", "something.else"}
 	icn := "1000720100V271387"
 
-	tok1, err := svc.GetAccessToken(ctx, icn, scopes)
+	tok1, err := svc.getAccessToken(ctx, icn, scopes)
 	if err != nil {
-		t.Fatalf("GetAccessToken #1: %v", err)
+		t.Fatalf("getAccessToken #1: %v", err)
 	}
 	if tok1.AccessToken != "test-token-123" {
 		t.Fatalf("unexpected token: %q", tok1.AccessToken)
 	}
 
-	tok2, err := svc.GetAccessToken(ctx, icn, scopes)
+	tok2, err := svc.getAccessToken(ctx, icn, scopes)
 	if err != nil {
-		t.Fatalf("GetAccessToken #2: %v", err)
+		t.Fatalf("getAccessToken #2: %v", err)
 	}
 	if tok2.AccessToken != "test-token-123" {
 		t.Fatalf("unexpected token #2: %q", tok2.AccessToken)

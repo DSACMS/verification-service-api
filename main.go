@@ -38,7 +38,6 @@ func run() error {
 		return ErrRunFailed
 	}
 
-
 	cfg, err := core.NewConfigFromEnv()
 	if err != nil {
 		logger.Error(
@@ -48,11 +47,10 @@ func run() error {
 		return ErrRunFailed
 	}
 
-	logger.Info("raw abc123 env", "SKIP_AUTH", os.Getenv("SKIP_AUTH"))
-
 	logger.Info("config loaded",
 		"env", cfg.Environment,
 		"skip_auth", cfg.SkipAuth,
+		"port", cfg.Port,
 	)
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
@@ -106,9 +104,18 @@ func run() error {
 		}
 	}()
 
-	routes.RegisterRoutes(app, &cfg, rdb, logger)
+	err = routes.RegisterRoutes(app, &cfg, rdb, logger)
+	if err != nil {
+		logger.ErrorContext(
+			ctx,
+			"Failed to register routes",
+			"err", err,
+		)
+		return ErrRunFailed
+	}
 
-	err = runServer(ctx, app, ":8000")
+	addr := fmt.Sprintf(":%d", cfg.Port)
+	err = runServer(ctx, app, addr)
 	if err != nil {
 		logger.ErrorContext(
 			ctx,

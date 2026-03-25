@@ -4,18 +4,14 @@ import (
 	"bytes"
 	"context"
 	"crypto/md5"
-	"crypto/rsa"
-	"crypto/x509"
 	"encoding/hex"
 	"encoding/json"
-	"encoding/pem"
 	"errors"
 	"fmt"
 	"io"
 	"log/slog"
 	"net/http"
 	"net/url"
-	"os"
 	"strings"
 	"sync"
 	"time"
@@ -55,8 +51,6 @@ type cachedToken struct {
 }
 
 type VeteransService interface {
-	GetAccessToken(ctx context.Context, icn string, scopes []string) (*AccessToken, error)
-	Submit(ctx context.Context, icn string, req DisabilityRatingRequest) (DisabilityRatingResponse, error)
 	GetDisabilityRating(ctx context.Context, icn string, req DisabilityRatingRequest) (DisabilityRatingResponse, error)
 }
 
@@ -91,7 +85,7 @@ type AccessToken struct {
 	ExpiresIn   int    `json:"expires_in"`
 }
 
-func New(cfg *core.VeteranAffairsConfig, opts Options) (VeteransService, error) {
+func New(cfg *core.VeteranAffairsConfig, opts Options) (*service, error) {
 	if cfg == nil {
 		return nil, errors.New("cfg is required")
 	}
@@ -144,6 +138,7 @@ func (s *service) GetDisabilityRating(
 ) (DisabilityRatingResponse, error) {
 	var zero DisabilityRatingResponse
 
+	icn = normalizeICN(icn)
 	if icn == "" {
 		return zero, errors.New("icn required")
 	}
@@ -162,7 +157,7 @@ func (s *service) GetDisabilityRating(
 
 	scopes := []string{"launch", "disability_rating.read"}
 
-	tok, err := s.GetAccessToken(ctx, icn, scopes)
+	tok, err := s.getAccessToken(ctx, icn, scopes)
 	if err != nil {
 		return zero, err
 	}
@@ -222,7 +217,8 @@ func (s *service) GetDisabilityRating(
 	return out, nil
 }
 
-func (s *service) GetAccessToken(ctx context.Context, icn string, scopes []string) (*AccessToken, error) {
+func (s *service) getAccessToken(ctx context.Context, icn string, scopes []string) (*AccessToken, error) {
+	icn = normalizeICN(icn)
 	if icn == "" {
 		return nil, errors.New("icn is required")
 	}
@@ -277,7 +273,6 @@ func (s *service) GetAccessToken(ctx context.Context, icn string, scopes []strin
 		slog.String("scope", scopeKey),
 		slog.Int("expires_in", expiresIn),
 		slog.Duration("latency", latency),
-		slog.String("access_token_prefix", prefix(tok.AccessToken, 12)),
 	)
 
 	return &AccessToken{
@@ -351,7 +346,6 @@ func (s *vaTokenSource) Token() (*oauth2.Token, error) {
 		return nil, errors.New("cfg.TokenURL is required")
 	}
 
-	
 	scopeStr := strings.Join(s.scopes, " ")
 
 	ctx := context.Background()
@@ -380,37 +374,10 @@ func (s *vaTokenSource) Token() (*oauth2.Token, error) {
 		}
 	}
 
-	s.logger.Info("VA token request inputs",
-		slog.String("client_id_prefix", prefix(s.cfg.ClientID, 8)),
-		slog.String("okta_aud", s.cfg.TokenRecipientURL),
+	s.logger.Info("VA token request",
 		slog.String("token_url", s.cfg.TokenURL),
-		slog.String("key_path", s.cfg.PrivateKeyPath),
 		slog.String("scope", scopeStr),
 	)
-
-	keyBytes, err := os.ReadFile(s.cfg.PrivateKeyPath)
-	if err != nil {
-		s.logger.Error("VA private key read failed",
-			slog.String("key_path", s.cfg.PrivateKeyPath),
-			slog.Any("error", err),
-		)
-		return nil, err
-	}
-
-	firstLine := strings.SplitN(string(keyBytes), "\n", 2)[0]
-
-	modHash, mhErr := rsaModulusMD5FromPEM(keyBytes)
-	if mhErr != nil {
-		s.logger.Warn("VA private key parse failed (fingerprint unavailable)",
-			slog.String("first_line", firstLine),
-			slog.Any("error", mhErr),
-		)
-	} else {
-		s.logger.Info("VA private key fingerprint",
-			slog.String("first_line", firstLine),
-			slog.String("rsa_modulus_md5", modHash),
-		)
-	}
 
 	assertion, err := GetAssertionPrivatekey(
 		s.cfg.ClientID,
@@ -492,6 +459,7 @@ func (s *vaTokenSource) Token() (*oauth2.Token, error) {
 	return tok, nil
 }
 func (s *service) Submit(ctx context.Context, icn string, req DisabilityRatingRequest) (DisabilityRatingResponse, error) {
+	icn = normalizeICN(icn)
 	if icn == "" {
 		return DisabilityRatingResponse{}, errors.New("icn required")
 	}
@@ -517,7 +485,7 @@ func (s *service) Submit(ctx context.Context, icn string, req DisabilityRatingRe
 		defer cancel()
 	}
 
-	tok, err := s.GetAccessToken(ctx, icn, DefaultTokenScopes)
+	tok, err := s.getAccessToken(ctx, icn, DefaultTokenScopes)
 	if err != nil {
 		return DisabilityRatingResponse{}, err
 	}
@@ -592,36 +560,6 @@ func newFormPOST(ctx context.Context, method, endpoint string, form url.Values) 
 	req.Header.Set("Accept", applicationJSON)
 	req.Header.Set("Content-Type", contentTypeForm)
 	return req, nil
-}
-
-func rsaModulusMD5FromPEM(pemBytes []byte) (string, error) {
-	block, _ := pem.Decode(pemBytes)
-	if block == nil {
-		return "", errors.New("failed to decode PEM block")
-	}
-
-	var priv any
-	var err error
-
-	if block.Type == "RSA PRIVATE KEY" {
-		priv, err = x509.ParsePKCS1PrivateKey(block.Bytes)
-		if err != nil {
-			return "", err
-		}
-	} else {
-		priv, err = x509.ParsePKCS8PrivateKey(block.Bytes)
-		if err != nil {
-			return "", err
-		}
-	}
-
-	rsaPriv, ok := priv.(*rsa.PrivateKey)
-	if !ok {
-		return "", errors.New("not an RSA private key")
-	}
-
-	sum := md5.Sum(rsaPriv.N.Bytes())
-	return hex.EncodeToString(sum[:]), nil
 }
 
 func (s *vaTokenSource) redisKey(scopeStr string) string {

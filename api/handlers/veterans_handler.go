@@ -2,66 +2,63 @@ package handlers
 
 import (
 	"context"
+	"errors"
 	"log/slog"
 	"strings"
-	"time"
 
-	"github.com/DSACMS/verification-service-api/pkg/core"
 	"github.com/DSACMS/verification-service-api/pkg/veterans"
 	"github.com/gofiber/fiber/v2"
 )
 
-func VeteranAffairsHandler(cfg *core.VeteranAffairsConfig, vet veterans.VeteransService, logger *slog.Logger) fiber.Handler {
-	const vaContextTimeout time.Duration = 10 * time.Second
+func VeteranAffairsInfoHandler(logger *slog.Logger) fiber.Handler {
+	if logger == nil {
+		logger = slog.Default()
+	}
+
+	logger = logger.With(slog.String("handler", "VeteranAffairsInfoHandler"))
+
+	return func(c *fiber.Ctx) error {
+		return c.Status(fiber.StatusOK).JSON(fiber.Map{
+			"availableEndpoint": "/api/va/disability-rating",
+			"method":            fiber.MethodPost,
+			"service":           "va",
+			"status":            "ready",
+		})
+	}
+}
+
+func VeteranAffairsDisabilityRatingHandler(vet veterans.VeteransService, logger *slog.Logger) fiber.Handler {
+	if vet == nil {
+		panic("veterans service is required")
+	}
 
 	if logger == nil {
 		logger = slog.Default()
 	}
 
-	logger = logger.With(slog.String("handler", "VeteranAffairsHandler"))
+	logger = logger.With(slog.String("handler", "VeteranAffairsDisabilityRatingHandler"))
 
 	return func(c *fiber.Ctx) error {
-		if cfg == nil || vet == nil {
-			logger.Error("server misconfigured")
-			return fiber.NewError(fiber.StatusInternalServerError, "server misconfigured")
-		}
-
-		icn := strings.TrimSpace(c.Query("icn"))
-		if icn == "" {
+		icn := c.Query("icn")
+		if strings.TrimSpace(icn) == "" {
 			return fiber.NewError(fiber.StatusBadRequest, "missing required query parameter: icn")
 		}
 
-		ctx, cancel := context.WithTimeout(c.Context(), vaContextTimeout)
-		defer cancel()
-
-		if c.Method() == fiber.MethodPost && strings.HasSuffix(c.Path(), "/va/disability-rating") {
-			var req veterans.DisabilityRatingRequest
-			if err := c.BodyParser(&req); err != nil {
-				return fiber.NewError(fiber.StatusBadRequest, "invalid JSON body")
-			}
-
-			out, err := vet.GetDisabilityRating(ctx, icn, req)
-			if err != nil {
-				logger.Error("failed to get VA disability rating", slog.Any("err", err))
-				return fiber.NewError(fiber.StatusBadGateway, err.Error())
-			}
-			return c.Status(fiber.StatusOK).JSON(out)
+		var req veterans.DisabilityRatingRequest
+		if err := c.BodyParser(&req); err != nil {
+			return fiber.NewError(fiber.StatusBadRequest, "invalid JSON body")
 		}
 
-		tok, err := vet.GetAccessToken(ctx, icn, veterans.DefaultTokenScopes)
+		out, err := vet.GetDisabilityRating(c.UserContext(), icn, req)
 		if err != nil {
-			logger.Error("failed to get VA access token", slog.Any("err", err))
-			return fiber.NewError(fiber.StatusBadGateway, "failed to authenticate with VA")
-		}
-		if tok == nil {
-			logger.Error("VA token response was nil")
-			return fiber.NewError(fiber.StatusBadGateway, "failed to authenticate with VA")
+			if errors.Is(err, context.DeadlineExceeded) {
+				return err
+			}
+
+			logger.Error("failed to get VA disability rating", slog.Any("error", err))
+			return fiber.NewError(fiber.StatusBadGateway, "failed to get VA disability rating")
 		}
 
-		return c.Status(fiber.StatusOK).JSON(veterans.TokenResponse{
-			TokenType: tok.TokenType,
-			Scope:     tok.Scope,
-			ExpiresIn: tok.ExpiresIn,
-		})
+		return c.Status(fiber.StatusOK).JSON(out)
 	}
 }

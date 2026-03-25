@@ -1,6 +1,7 @@
 package routes
 
 import (
+	"fmt"
 	"log/slog"
 	"net/http"
 	"time"
@@ -19,7 +20,7 @@ const (
 	timeout time.Duration = 10 * time.Second
 )
 
-func RegisterRoutes(app fiber.Router, cfg *core.Config, rdb *redis.Client, logger *slog.Logger) {
+func RegisterRoutes(app fiber.Router, cfg *core.Config, rdb *redis.Client, logger *slog.Logger) error {
 	if logger == nil {
 		logger = slog.Default()
 	}
@@ -42,8 +43,7 @@ func RegisterRoutes(app fiber.Router, cfg *core.Config, rdb *redis.Client, logge
 		Timeout:    timeout,
 	})
 	if err != nil {
-		logger.Error("failed to init veterans service", slog.Any("err", err))
-		panic(err)
+		return fmt.Errorf("failed to init veterans service: %w", err)
 	}
 
 	withCB := middleware.WithCircuitBreaker(func(name string) *circuitbreaker.RedisBreaker {
@@ -54,11 +54,12 @@ func RegisterRoutes(app fiber.Router, cfg *core.Config, rdb *redis.Client, logge
 			logger,
 		)
 	})
+	withTimeout := middleware.WithRequestTimeout(timeout)
 
 	api.Get("/edu", withCB(handlers.EducationHandler(cfg, edu, logger)))
 
-	vaHandler := handlers.VeteranAffairsHandler(&cfg.VA, vetSvc, logger)
+	api.Get("/va", withCB(withTimeout(handlers.VeteranAffairsInfoHandler(logger))))
+	api.Post("/va/disability-rating", withCB(withTimeout(handlers.VeteranAffairsDisabilityRatingHandler(vetSvc, logger))))
 
-	api.Get("/va", withCB(vaHandler))
-	api.Post("/va/disability-rating", withCB(vaHandler))
+	return nil
 }

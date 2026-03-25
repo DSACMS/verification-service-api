@@ -203,6 +203,35 @@ func WithCircuitBreaker(newBreaker func(name string) *circuitbreaker.RedisBreake
 	}
 }
 
+func WithRequestTimeout(timeout time.Duration) func(fiber.Handler) fiber.Handler {
+	return func(next fiber.Handler) fiber.Handler {
+		return func(c *fiber.Ctx) error {
+			if timeout <= 0 {
+				return next(c)
+			}
+
+			ctx, cancel := context.WithTimeout(c.UserContext(), timeout)
+			defer cancel()
+
+			c.SetUserContext(ctx)
+
+			err := next(c)
+			if err != nil {
+				if errors.Is(err, context.DeadlineExceeded) || errors.Is(ctx.Err(), context.DeadlineExceeded) {
+					return fiber.NewError(fiber.StatusGatewayTimeout, "request timeout")
+				}
+				return err
+			}
+
+			if errors.Is(ctx.Err(), context.DeadlineExceeded) {
+				return fiber.NewError(fiber.StatusGatewayTimeout, "request timeout")
+			}
+
+			return nil
+		}
+	}
+}
+
 func breakerName(c *fiber.Ctx) string {
 	var path string
 	r := c.Route()

@@ -55,12 +55,8 @@ func (f *vaTokenFetcher) Fetch(ctx context.Context, icn string) (*oauthLocal.Tok
 
 	scopeStr := strings.Join(f.scopes, " ")
 
-	// Key debug log for "signature invalid" issues (no secrets).
-	f.logger.Info("VA token fetch inputs",
-		slog.String("client_id_prefix", prefix(f.cfg.ClientID, 8)),
-		slog.String("okta_aud", f.cfg.TokenRecipientURL),
+	f.logger.Info("VA token fetch request",
 		slog.String("token_url", f.cfg.TokenURL),
-		slog.String("key_path", f.cfg.PrivateKeyPath),
 		slog.String("scope", scopeStr),
 	)
 
