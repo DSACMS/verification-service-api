@@ -36,7 +36,7 @@ func GetAssertionPrivatekey(clientID, privateKeyPath, audience string) (string, 
 		"iss": clientID,
 		"sub": clientID,
 		"iat": iat,
-		"exp": exp + 300,
+		"exp": exp,
 		"jti": uuid.NewString(),
 	}
 
@@ -52,11 +52,9 @@ func GetAssertionPrivatekey(clientID, privateKeyPath, audience string) (string, 
 
 	tok := jwt.NewWithClaims(jwt.SigningMethodRS256, claims)
 
-
 	signed, err := tok.SignedString(privateKey)
 	if err != nil {
 		return "", err
 	}
 	return signed, nil
 }
-

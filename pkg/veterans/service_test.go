@@ -7,6 +7,7 @@ import (
 	"crypto/x509"
 	"encoding/base64"
 	"encoding/pem"
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
@@ -139,5 +140,20 @@ func TestGetAccessToken_HappyPath_AndCaching_PerICN(t *testing.T) {
 	got := atomic.LoadInt32(&hits)
 	if got != 1 {
 		t.Fatalf("expected 1 HTTP hit due to caching (same ICN), got %d", got)
+	}
+}
+
+func TestGetOrCreateTokenSource_BoundsCacheSize(t *testing.T) {
+	svc := &service{
+		tokenSrcs: make(map[string]tokenSourceEntry),
+	}
+
+	for i := 0; i < maxTokenSourceEntries+20; i++ {
+		key := fmt.Sprintf("k-%d", i)
+		_ = svc.getOrCreateTokenSource(key, []string{"launch"}, fmt.Sprintf("launch-%d", i))
+	}
+
+	if got := len(svc.tokenSrcs); got > maxTokenSourceEntries {
+		t.Fatalf("token source cache exceeded max size: got=%d max=%d", got, maxTokenSourceEntries)
 	}
 }

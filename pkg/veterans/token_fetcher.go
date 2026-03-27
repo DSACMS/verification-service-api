@@ -100,11 +100,7 @@ func (f *vaTokenFetcher) Fetch(ctx context.Context, icn string) (*oauthLocal.Tok
 	body, _ := io.ReadAll(resp.Body)
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		respBody := strings.TrimSpace(string(body))
-		if len(respBody) > maxErrBodyLogBytes {
-			respBody = respBody[:maxErrBodyLogBytes] + "..."
-		}
-		return nil, fmt.Errorf("va token request failed: status=%s body=%s", resp.Status, respBody)
+		return nil, fmt.Errorf("va token request failed: status=%s body_bytes=%d", resp.Status, len(body))
 	}
 
 	var at AccessToken

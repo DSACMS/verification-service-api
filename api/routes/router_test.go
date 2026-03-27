@@ -11,13 +11,14 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestRegisterRoutes_ReturnsErrorWhenVeteransConfigInvalid(t *testing.T) {
+func TestRegisterRoutes_SucceedsWhenVeteransConfigInvalid(t *testing.T) {
 	app := fiber.New()
 	cfg := core.DefaultConfig()
 
 	err := RegisterRoutes(app, &cfg, nil, nil)
-	require.Error(t, err)
-	require.ErrorContains(t, err, "failed to init veterans service")
+	require.NoError(t, err)
+	require.False(t, hasRoute(app, http.MethodGet, "/api/va"))
+	require.False(t, hasRoute(app, http.MethodPost, "/api/va/disability-rating"))
 }
 
 func TestRegisterRoutes_SucceedsAndRegistersHealthRoute(t *testing.T) {

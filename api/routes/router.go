@@ -1,7 +1,6 @@
 package routes
 
 import (
-	"fmt"
 	"log/slog"
 	"net/http"
 	"time"
@@ -32,9 +31,8 @@ func RegisterRoutes(app fiber.Router, cfg *core.Config, rdb *redis.Client, logge
 	api := app.Group("/api")
 
 	edu := education.New(&cfg.NSC, education.Options{
-		Logger:     logger,
-		HTTPClient: http.DefaultClient,
-		Timeout:    timeout,
+		Logger:  logger,
+		Timeout: timeout,
 	})
 
 	vetSvc, err := veterans.New(&cfg.VA, veterans.Options{
@@ -42,8 +40,9 @@ func RegisterRoutes(app fiber.Router, cfg *core.Config, rdb *redis.Client, logge
 		HTTPClient: http.DefaultClient,
 		Timeout:    timeout,
 	})
+	vaConfigured := err == nil
 	if err != nil {
-		return fmt.Errorf("failed to init veterans service: %w", err)
+		logger.Warn("VA routes disabled due to missing or invalid configuration", slog.Any("error", err))
 	}
 
 	withCB := middleware.WithCircuitBreaker(func(name string) *circuitbreaker.RedisBreaker {
@@ -60,8 +59,10 @@ func RegisterRoutes(app fiber.Router, cfg *core.Config, rdb *redis.Client, logge
 	api.Get("/nsc/education", eduHandler)
 	api.Get("/edu", eduHandler)
 
-	api.Get("/va", withCB(withTimeout(handlers.VeteranAffairsInfoHandler(logger))))
-	api.Post("/va/disability-rating", withCB(withTimeout(handlers.VeteranAffairsDisabilityRatingHandler(vetSvc, logger))))
+	if vaConfigured {
+		api.Get("/va", withCB(withTimeout(handlers.VeteranAffairsInfoHandler(logger))))
+		api.Post("/va/disability-rating", withCB(withTimeout(handlers.VeteranAffairsDisabilityRatingHandler(vetSvc, logger))))
+	}
 
 	return nil
 }

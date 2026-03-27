@@ -30,7 +30,8 @@ const (
 	authHeader            string        = "Authorization"
 	optsTimeout           time.Duration = 10 * time.Second
 
-	maxErrBodyLogBytes = 800
+	maxErrBodyLogBytes    = 800
+	maxTokenSourceEntries = 1024
 )
 
 var DefaultTokenScopes = []string{
@@ -73,9 +74,14 @@ type service struct {
 	timeout time.Duration
 
 	mu        sync.Mutex
-	tokenSrcs map[string]oauth2.TokenSource
+	tokenSrcs map[string]tokenSourceEntry
 
 	redis RedisCache
+}
+
+type tokenSourceEntry struct {
+	source   oauth2.TokenSource
+	lastUsed time.Time
 }
 
 type AccessToken struct {
@@ -127,7 +133,7 @@ func New(cfg *core.VeteranAffairsConfig, opts Options) (*service, error) {
 		logger:    logger,
 		timeout:   timeout,
 		redis:     opts.Redis,
-		tokenSrcs: make(map[string]oauth2.TokenSource),
+		tokenSrcs: make(map[string]tokenSourceEntry),
 	}, nil
 }
 
@@ -200,15 +206,16 @@ func (s *service) GetDisabilityRating(
 	}
 	defer resp.Body.Close()
 
-	respBody, _ := io.ReadAll(resp.Body)
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
+		errBody, _ := io.ReadAll(io.LimitReader(resp.Body, maxErrBodyLogBytes+1))
 		return zero, fmt.Errorf(
-			"va disability_rating failed: status=%s body=%s",
+			"va disability_rating failed: status=%s body_bytes=%d",
 			resp.Status,
-			strings.TrimSpace(string(respBody)),
+			len(errBody),
 		)
 	}
 
+	respBody, _ := io.ReadAll(resp.Body)
 	var out DisabilityRatingResponse
 	if err := json.Unmarshal(respBody, &out); err != nil {
 		return zero, err
@@ -283,8 +290,14 @@ func (s *service) getOrCreateTokenSource(cacheKey string, scopes []string, launc
 	s.mu.Lock()
 	defer s.mu.Unlock()
 
-	if ts, ok := s.tokenSrcs[cacheKey]; ok {
-		return ts
+	if entry, ok := s.tokenSrcs[cacheKey]; ok {
+		entry.lastUsed = time.Now().UTC()
+		s.tokenSrcs[cacheKey] = entry
+		return entry.source
+	}
+
+	if len(s.tokenSrcs) >= maxTokenSourceEntries {
+		s.evictOldestTokenSourceLocked()
 	}
 
 	base := &vaTokenSource{
@@ -298,8 +311,31 @@ func (s *service) getOrCreateTokenSource(cacheKey string, scopes []string, launc
 	}
 
 	reuse := oauth2.ReuseTokenSourceWithExpiry(nil, base, tokenReuseSkewSeconds)
-	s.tokenSrcs[cacheKey] = reuse
+	s.tokenSrcs[cacheKey] = tokenSourceEntry{
+		source:   reuse,
+		lastUsed: time.Now().UTC(),
+	}
 	return reuse
+}
+
+func (s *service) evictOldestTokenSourceLocked() {
+	if len(s.tokenSrcs) == 0 {
+		return
+	}
+
+	var oldestKey string
+	var oldest time.Time
+	first := true
+
+	for key, entry := range s.tokenSrcs {
+		if first || entry.lastUsed.Before(oldest) {
+			oldestKey = key
+			oldest = entry.lastUsed
+			first = false
+		}
+	}
+
+	delete(s.tokenSrcs, oldestKey)
 }
 
 type vaTokenSource struct {
@@ -408,11 +444,7 @@ func (s *vaTokenSource) Token() (*oauth2.Token, error) {
 	body, _ := io.ReadAll(resp.Body)
 
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		respBody := strings.TrimSpace(string(body))
-		if len(respBody) > maxErrBodyLogBytes {
-			respBody = respBody[:maxErrBodyLogBytes] + "..."
-		}
-		return nil, fmt.Errorf("va token request failed: status=%s body=%s", resp.Status, respBody)
+		return nil, fmt.Errorf("va token request failed: status=%s body_bytes=%d", resp.Status, len(body))
 	}
 
 	var response AccessToken
@@ -518,16 +550,12 @@ func (s *service) Submit(ctx context.Context, icn string, req DisabilityRatingRe
 	}
 	defer resp.Body.Close()
 
-	respBodyBytes, _ := io.ReadAll(resp.Body)
-
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		snippet := strings.TrimSpace(string(respBodyBytes))
-		if len(snippet) > maxErrBodyLogBytes {
-			snippet = snippet[:maxErrBodyLogBytes] + "..."
-		}
-		return DisabilityRatingResponse{}, fmt.Errorf("va submit failed: status=%s body=%s", resp.Status, snippet)
+		errBody, _ := io.ReadAll(io.LimitReader(resp.Body, maxErrBodyLogBytes+1))
+		return DisabilityRatingResponse{}, fmt.Errorf("va submit failed: status=%s body_bytes=%d", resp.Status, len(errBody))
 	}
 
+	respBodyBytes, _ := io.ReadAll(resp.Body)
 	var out DisabilityRatingResponse
 	if err := json.Unmarshal(respBodyBytes, &out); err != nil {
 		return DisabilityRatingResponse{}, err
