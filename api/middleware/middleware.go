@@ -216,18 +216,11 @@ func WithRequestTimeout(timeout time.Duration) func(fiber.Handler) fiber.Handler
 			c.SetUserContext(ctx)
 
 			err := next(c)
-			if err != nil {
-				if errors.Is(err, context.DeadlineExceeded) || errors.Is(ctx.Err(), context.DeadlineExceeded) {
-					return fiber.NewError(fiber.StatusGatewayTimeout, "request timeout")
-				}
-				return err
-			}
-
-			if errors.Is(ctx.Err(), context.DeadlineExceeded) {
+			if errors.Is(err, context.DeadlineExceeded) || errors.Is(ctx.Err(), context.DeadlineExceeded) {
 				return fiber.NewError(fiber.StatusGatewayTimeout, "request timeout")
 			}
 
-			return nil
+			return err
 		}
 	}
 }

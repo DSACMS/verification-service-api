@@ -59,7 +59,14 @@ func TestVeteranAffairsDisabilityRatingHandler_PanicsWhenServiceIsNil(t *testing
 }
 
 func TestVeteranAffairsDisabilityRatingHandler_RequiresICN(t *testing.T) {
-	svc := &fakeVeteransService{}
+	svc := &fakeVeteransService{
+		fn: func(_ context.Context, icn string, _ veterans.DisabilityRatingRequest) (veterans.DisabilityRatingResponse, error) {
+			if strings.TrimSpace(icn) == "" {
+				return veterans.DisabilityRatingResponse{}, veterans.ErrICNRequired
+			}
+			return veterans.DisabilityRatingResponse{}, nil
+		},
+	}
 
 	app := fiber.New()
 	app.Post("/api/va/disability-rating", VeteranAffairsDisabilityRatingHandler(svc, nil))
@@ -73,7 +80,7 @@ func TestVeteranAffairsDisabilityRatingHandler_RequiresICN(t *testing.T) {
 	defer resp.Body.Close()
 
 	require.Equal(t, fiber.StatusBadRequest, resp.StatusCode)
-	require.False(t, svc.called)
+	require.True(t, svc.called)
 }
 
 func TestVeteranAffairsDisabilityRatingHandler_InvalidBody(t *testing.T) {

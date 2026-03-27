@@ -140,7 +140,7 @@ func (s *service) GetDisabilityRating(
 
 	icn = normalizeICN(icn)
 	if icn == "" {
-		return zero, errors.New("icn required")
+		return zero, ErrICNRequired
 	}
 	if s.cfg == nil {
 		return zero, errors.New("missing config")
@@ -218,10 +218,6 @@ func (s *service) GetDisabilityRating(
 }
 
 func (s *service) getAccessToken(ctx context.Context, icn string, scopes []string) (*AccessToken, error) {
-	icn = normalizeICN(icn)
-	if icn == "" {
-		return nil, errors.New("icn is required")
-	}
 	if len(scopes) == 0 {
 		return nil, errors.New("scopes can't be empty")
 	}
@@ -459,10 +455,6 @@ func (s *vaTokenSource) Token() (*oauth2.Token, error) {
 	return tok, nil
 }
 func (s *service) Submit(ctx context.Context, icn string, req DisabilityRatingRequest) (DisabilityRatingResponse, error) {
-	icn = normalizeICN(icn)
-	if icn == "" {
-		return DisabilityRatingResponse{}, errors.New("icn required")
-	}
 	if s.cfg == nil {
 		return DisabilityRatingResponse{}, errors.New("missing config")
 	}
@@ -472,6 +464,8 @@ func (s *service) Submit(ctx context.Context, icn string, req DisabilityRatingRe
 	if len(DefaultTokenScopes) == 0 {
 		return DisabilityRatingResponse{}, errors.New("defaultVAScopes must be set")
 	}
+
+	icn = normalizeICN(icn)
 
 	launch, err := BuildLaunchParam(icn)
 	if err != nil {

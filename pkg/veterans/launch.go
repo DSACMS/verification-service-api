@@ -7,14 +7,16 @@ import (
 	"strings"
 )
 
-func BuildLaunchParam(patientICN string) (string, error) {
-	patientICN = normalizeICN(patientICN)
-	if patientICN == "" {
-		return "", errors.New("patientICN is required")
+var ErrICNRequired = errors.New("'icn' is required")
+
+func BuildLaunchParam(icn string) (string, error) {
+	icn = normalizeICN(icn)
+	if icn == "" {
+		return "", ErrICNRequired
 	}
 
 	b, err := json.Marshal(map[string]string{
-		"patient": patientICN,
+		"patient": icn,
 	})
 	if err != nil {
 		return "", err

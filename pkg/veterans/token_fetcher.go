@@ -32,8 +32,9 @@ func (f *vaTokenFetcher) Fetch(ctx context.Context, icn string) (*oauthLocal.Tok
 	if f.logger == nil {
 		f.logger = slog.Default()
 	}
+	icn = normalizeICN(icn)
 	if icn == "" {
-		return nil, errors.New("icn is required")
+		return nil, ErrICNRequired
 	}
 	if len(f.scopes) == 0 {
 		return nil, errors.New("scopes can't be empty")

@@ -1,10 +1,8 @@
 package handlers
 
 import (
-	"context"
 	"fmt"
 	"log/slog"
-	"time"
 
 	"github.com/DSACMS/verification-service-api/pkg/core"
 	"github.com/DSACMS/verification-service-api/pkg/education"
@@ -12,17 +10,12 @@ import (
 )
 
 func EducationHandler(cfg *core.Config, edu education.EducationService, logger *slog.Logger) fiber.Handler {
-	const eduContextTimeout time.Duration = 5 * time.Second
-
 	if logger == nil {
 		logger = slog.Default()
 	}
-	logger = logger.With(slog.String("handler", "TestEducationHandler"))
+	logger = logger.With(slog.String("handler", "EducationHandler"))
 
 	return func(c *fiber.Ctx) error {
-		ctx, cancel := context.WithTimeout(c.Context(), eduContextTimeout)
-		defer cancel()
-
 		reqBody := education.Request{
 			AccountID:        cfg.NSC.AccountID,
 			OrganizationName: "Lynette",
@@ -33,9 +26,9 @@ func EducationHandler(cfg *core.Config, edu education.EducationService, logger *
 			EndClient:        "CMS",
 		}
 
-		result, err := edu.Submit(ctx, reqBody)
+		result, err := edu.Submit(c.UserContext(), reqBody)
 		if err != nil {
-			logger.ErrorContext(ctx, "education verification failed", slog.Any("error", err))
+			logger.ErrorContext(c.UserContext(), "education verification failed", slog.Any("error", err))
 			return fiber.NewError(
 				fiber.StatusBadGateway,
 				fmt.Sprintf("education verification failed: %v", err),

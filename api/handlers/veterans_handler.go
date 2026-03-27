@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"log/slog"
-	"strings"
 
 	"github.com/DSACMS/verification-service-api/pkg/veterans"
 	"github.com/gofiber/fiber/v2"
@@ -39,20 +38,18 @@ func VeteranAffairsDisabilityRatingHandler(vet veterans.VeteransService, logger 
 	logger = logger.With(slog.String("handler", "VeteranAffairsDisabilityRatingHandler"))
 
 	return func(c *fiber.Ctx) error {
-		icn := c.Query("icn")
-		if strings.TrimSpace(icn) == "" {
-			return fiber.NewError(fiber.StatusBadRequest, "missing required query parameter: icn")
-		}
-
 		var req veterans.DisabilityRatingRequest
 		if err := c.BodyParser(&req); err != nil {
 			return fiber.NewError(fiber.StatusBadRequest, "invalid JSON body")
 		}
 
-		out, err := vet.GetDisabilityRating(c.UserContext(), icn, req)
+		out, err := vet.GetDisabilityRating(c.UserContext(), c.Query("icn"), req)
 		if err != nil {
 			if errors.Is(err, context.DeadlineExceeded) {
 				return err
+			}
+			if errors.Is(err, veterans.ErrICNRequired) {
+				return fiber.NewError(fiber.StatusBadRequest, "'icn' is a required query parameter")
 			}
 
 			logger.Error("failed to get VA disability rating", slog.Any("error", err))

@@ -56,7 +56,9 @@ func RegisterRoutes(app fiber.Router, cfg *core.Config, rdb *redis.Client, logge
 	})
 	withTimeout := middleware.WithRequestTimeout(timeout)
 
-	api.Get("/edu", withCB(handlers.EducationHandler(cfg, edu, logger)))
+	eduHandler := withCB(withTimeout(handlers.EducationHandler(cfg, edu, logger)))
+	api.Get("/nsc/education", eduHandler)
+	api.Get("/edu", eduHandler)
 
 	api.Get("/va", withCB(withTimeout(handlers.VeteranAffairsInfoHandler(logger))))
 	api.Post("/va/disability-rating", withCB(withTimeout(handlers.VeteranAffairsDisabilityRatingHandler(vetSvc, logger))))

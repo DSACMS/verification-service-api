@@ -40,4 +40,18 @@ func TestRegisterRoutes_SucceedsAndRegistersHealthRoute(t *testing.T) {
 	require.NoError(t, readErr)
 	require.Equal(t, fiber.StatusOK, resp.StatusCode)
 	require.Equal(t, "Backend running!", string(body))
+	require.True(t, hasRoute(app, http.MethodGet, "/api/nsc/education"))
+	require.True(t, hasRoute(app, http.MethodGet, "/api/edu"))
+}
+
+func hasRoute(app *fiber.App, method, path string) bool {
+	for _, routes := range app.Stack() {
+		for _, route := range routes {
+			if route.Method == method && route.Path == path {
+				return true
+			}
+		}
+	}
+
+	return false
 }
